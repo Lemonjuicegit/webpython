@@ -1,7 +1,7 @@
 
 class config:
-    gdb_path = r'E:\工作文档\5来苏镇.gdb'
-    savepath = r'E:\工作文档\测试导出数据'
+    gdb_path = r'E:\工作文档\BQPB.gdb'
+    savepath = r'E:\工作文档\板桥镇'
     jpg_zdct = ''
     template_path = 'E:\工作文档\办证、公示资料1014'
     control = {

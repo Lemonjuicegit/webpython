@@ -1,6 +1,7 @@
 import re
 from docx import Document
 import geopandas as gpd
+import pandas as pd
 from docxtpl import DocxTemplate
 from docx.oxml.ns import qn
 from docx.shared import Pt, Cm
@@ -9,12 +10,13 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from pathlib import Path
 from config import config
 from Djmod import Djlog, compose_docx
-log = Djlog(config.log_path)
+log = Djlog()
 
-gdf_jzx = gpd.read_file(config.gdb_path,layer='JZX')
+# gdf_jzx = gpd.read_file(config.gdb_path,layer='JZX')
+gdf_jzx = pd.read_excel(r"E:\exploitation\webpython\JZX33.xlsx")
 gdf_ZD = gpd.read_file(config.gdb_path,layer='ZD')
 gdf_jzd = gpd.read_file(config.gdb_path,layer='JZD')
-gdf_jzx.sort_values(by=['ZDDM','PX'])
+# gdf_jzx.sort_values(by=['ZDDM','PX'])
 gdf_jzd.sort_values(by=['ZDDM','PX'])
 # gdf_ZD = gdf_ZD[gdf_ZD.QLRMC == '三教镇云龙村彭家院子村民小组']
 
@@ -111,7 +113,8 @@ def generate_jxrks(qlr):
         'XLSM':'、'.join(XLSM) if XLSM else '',
         'ZXLSM':'、'.join(XLSM[1:-1]) if XLSM else '',
         'JZLSM':XLSM[-1],
-        'TFH':'、'.join(gdf_ZD[gdf_ZD.QLRMC == qlr]['TFH'].drop_duplicates().values),
+        # 'TFH':'、'.join(gdf_ZD[gdf_ZD.QLRMC == qlr]['TFH'].drop_duplicates().values),
+        'TFH':'',
         'stamp_paralist':[value for key,value in stamp_paralist(sift_jzx).items()]        
     })
     return doc
@@ -134,7 +137,8 @@ def generate_jzsmjb(data_,qlr):
     doc = Document(template_path / '界址说明标示表.docx')
     doc.styles['Normal'].font.name = u'方正仿宋_GBK'
     doc.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), u'方正仿宋_GBK')
-    tfh = '、'.join(gdf_ZD[gdf_ZD.QLRMC == qlr].TFH.drop_duplicates().values)
+    # tfh = '、'.join(gdf_ZD[gdf_ZD.QLRMC == qlr].TFH.drop_duplicates().values)
+    tfh = ''
     cell = doc.tables[0].cell
     setCelltext(doc.tables[0], 0, 4, qlr)
     setCelltext(doc.tables[0], 1, 4, tfh)
@@ -272,8 +276,8 @@ if __name__ == '__main__':
         print(f"{qlr}土地权属界线认可书")
         zddmlist = list(gdf_ZD[gdf_ZD.QLRMC == qlr].ZDDM.values)
         jxrks = generate_jxrks(qlr)
-        jzsmjb = generate_jzsmjb(get_jzd_data()[qlr],qlr)
+        # jzsmjb = generate_jzsmjb(get_jzd_data()[qlr],qlr)
         if not jxrks:
             continue
-        compose_docx([jxrks,jzsmjb], f"{config.savepath}\\{qlr}土地权属界线认可书.docx")
+        compose_docx([jxrks], f"{config.savepath}\\{qlr}土地权属界线认可书.docx")
         

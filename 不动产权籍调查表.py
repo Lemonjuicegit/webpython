@@ -1,6 +1,7 @@
 import re
 import time
 import geopandas as gpd
+import pandas as pd
 from tqdm import tqdm
 from docx import Document
 from docx.oxml.ns import qn
@@ -21,8 +22,10 @@ template_path = Path(config.template_path)
 out_test = Path(config.out_test)
 
 zd_data = gpd.read_file(gdb_path,layer='ZD')
+
+# jzx_data = gpd.read_file(gdb_path,layer='JZX')
 jzx_data = gpd.read_file(gdb_path,layer='JZX')
-jzd_data = gpd.read_file(gdb_path,layer='JZD')
+jzd_data = pd.read_excel(r"E:\工作文档\JZX22.xlsx")
 zd_data = zd_data[zd_data.QLRMC == '三教镇三台村锣鼓山村民小组']
 jzx_data.sort_values(by=['ZDDM','PX'], inplace=True)
 jzd_data.sort_values(by=['ZDDM','PX'], inplace=True)

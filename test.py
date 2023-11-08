@@ -1,5 +1,6 @@
 import pandas as pd
-
-a = pd.DataFrame({'a':[1,2,3,4],'b':[5,6,7,8]})
-
-print(a.at[1,'a'])
+ 
+data = {'name': ['John', 'Jane', 'Bob'], 'age': [32, 27, 45]}
+df = pd.DataFrame(data)
+df = df.set_index('name')
+print(df)

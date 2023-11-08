@@ -7,7 +7,6 @@ from docxcompose.composer import Composer
 from pathlib import Path
 
 
-
 class Djlog:
 
     def __init__(self) -> None:
@@ -20,8 +19,6 @@ class Djlog:
         self.info = logging.info
         self.warning = logging.warning
         self.err = logging.error
-
-
 
 def compose_docx_file(files, output_file_path):
     """
