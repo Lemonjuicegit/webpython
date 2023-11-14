@@ -3,9 +3,8 @@ import openpyxl
 from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Side
-from Djmod import Djlog
-from config import config
-log = Djlog(r'.\djlog.log')
+from . import Djmod
+log = Djmod.Djlog()
 def add_border(cell):
     # 给单元格添加边框
     if type(cell) is openpyxl.cell.cell.Cell:
@@ -14,7 +13,6 @@ def add_border(cell):
         for cel in cell:
             for ce in cel:
                ce.border = Border(left=Side(style='thin'), right=Side(style='thin'),top=Side(style='thin'),bottom=Side(style='thin')) 
-
 
 def head_zddm(ws,text):
     ws[f'A{ws.max_row+1}'] = text
@@ -34,6 +32,8 @@ def assignment_cell(cell,text):
     cell.alignment = Alignment(horizontal='center', vertical='center')
 
 def generate_jzdcg(data,jzd_data, qlr,mj,save_path):
+    if not data:
+        return
     wb = Workbook()
     ws = wb.active
     ws.column_dimensions['A'].width = 18.5
@@ -52,7 +52,7 @@ def generate_jzdcg(data,jzd_data, qlr,mj,save_path):
         head_zddm(ws,f"宗地代码：{zddm}")
         n = 0
         zd_jzd = jzd_data[jzd_data['ZDDM'] == zddm]
-        for index,row in zd_jzd.iterrows():
+        for _,row in zd_jzd.iterrows():
             assignment_cell(ws[f'A{ws.max_row+1}'],row['JZD_NEW'])
             assignment_cell(ws[f'C{ws.max_row}'],row.geometry.x)
             assignment_cell(ws[f'D{ws.max_row}'],row.geometry.y)
@@ -88,30 +88,42 @@ def generate_jzdcg(data,jzd_data, qlr,mj,save_path):
     
     wb.save(save_path)
     
-save_path = Path(config.savepath)
-JZD_gdb = config.gdb_path
+# save_path = Path(config.savepath)
+# JZD_gdb = config.gdb_path
 
-jzd_data = gpd.read_file(JZD_gdb,layer='JZD')
-jzd_data.sort_values(by='ZDDM', inplace=True)
-jzd_data.sort_values(by='PX', inplace=True)
+# jzd_data = gpd.read_file(JZD_gdb,layer='JZD')
                         
-zd_data = gpd.read_file(JZD_gdb,layer='ZD')
-data = {}
-for index,row in zd_data.iterrows():
-    if row['QLRMC'] not in data:
-        if len(jzd_data[jzd_data['ZDDM']==row['ZDDM']]) == 0:
-            log.err(f"{row['ZDDM']}:没有界址点")
-            continue
-        data[row['QLRMC']] = {'SETZDDM':{row['ZDDM']},'ZDMJ':row['ZDMJ']}
-    else:
-        if len(jzd_data[jzd_data['ZDDM']==row['ZDDM']]) == 0:
-            log.err(f"{row['ZDDM']}:没有界址点")
-            continue
-        data[row['QLRMC']]['SETZDDM'].add(row['ZDDM'])
-        data[row['QLRMC']]['ZDMJ'] = data[row['QLRMC']]['ZDMJ'] + row['ZDMJ']
-for qlr,value in data.items():
-    print(qlr)
-    generate_jzdcg(value['SETZDDM'],jzd_data,qlr,round(value['ZDMJ'],4),save_path/f"{qlr}界址点成果表.xlsx")
+# zd_data = gpd.read_file(JZD_gdb,layer='ZD')
+
+def get_jzd_data(jzd_data,zd_data):
+    jzd_data.sort_values(by='ZDDM', inplace=True)
+    jzd_data.sort_values(by='PX', inplace=True)
+    data = {}
+    for _,row in zd_data.iterrows():
+        if row['QLRMC'] not in data:
+            if len(jzd_data[jzd_data['ZDDM']==row['ZDDM']]) == 0:
+                data[row['QLRMC']] = {'SETZDDM':set(),'ZDMJ':row['ZDMJ']}
+                log.err(f"{row['ZDDM']}:没有界址点")
+                continue
+            data[row['QLRMC']] = {'SETZDDM':{row['ZDDM']},'ZDMJ':row['ZDMJ']}
+        else:
+            if len(jzd_data[jzd_data['ZDDM']==row['ZDDM']]) == 0:
+                data[row['QLRMC']] = {'SETZDDM':set(),'ZDMJ':row['ZDMJ']}
+                log.err(f"{row['ZDDM']}:没有界址点")
+                continue
+            data[row['QLRMC']]['SETZDDM'].add(row['ZDDM'])
+            data[row['QLRMC']]['ZDMJ'] = data[row['QLRMC']]['ZDMJ'] + row['ZDMJ']
+    return data
+
+def generate_jzdcg_all(jzd_data,zd_data,save_path):
+    data = get_jzd_data(jzd_data,zd_data)
+    for qlr,value in data.items():
+        if not value['SETZDDM']:
+            yield f"{qlr}没有界址点成果表"
+        generate_jzdcg(value['SETZDDM'],jzd_data,qlr,round(value['ZDMJ'],4),Path(save_path)/f"{qlr}界址点成果表.xlsx")
+        yield f"{qlr}界址点成果表"
+
+    
 
 
 '''

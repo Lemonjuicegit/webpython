@@ -1,25 +1,22 @@
 import geopandas as gpd
 import pandas as pd
 import numpy as np
-from decimal import Decimal, getcontext
-from shapely.geometry import Polygon, MultiPolygon,mapping
-from Djmod import Djlog
-log = Djlog()
-
+from shapely.geometry import MultiPolygon,mapping
+from . import Djmod
+log = Djmod.Djlog()
 class Ownership:
     def __init__(self,gdbpath):
-        self.ZD = gpd.read_file(gdbpath,layer='ZD')
-        self.JZD = gpd.read_file(gdbpath,layer='JZD')
-
-        # self.JZD['X'] = np.ceil(self.JZD.geometry.x*1000).astype('int64')
-        # self.JZD['Y'] = np.ceil(self.JZD.geometry.y*1000).astype('int64')
+        self.ZD = gpd.read_file(gdbpath,layer='ZD').fillna('')
+        # self.ZD = self.ZD[self.ZD.ZDDM == '500118002020JA10007']
+        self.JZD = gpd.read_file(gdbpath,layer='JZD').fillna('')
         self.JZD['X'] = np.round(self.JZD.geometry.x*10).astype('int64')
         self.JZD['Y'] = np.round(self.JZD.geometry.y*10).astype('int64')
-        self.JZD['XY'] = self.JZD['X'] + self.JZD['Y']
-        # self.a = self.JZD[(self.JZD.ZDDM == '500118002015JA10033') & (self.JZD.JZD_NEW == 'J1')]
+        # self.JZD = self.JZD[self.JZD.ZDDM == '500118002020JA10007']
         # self.get_coordinates(self.ZD)
         self.JZD_All = gpd.read_file(gdbpath,layer='ZD_All')
-        self.JZX = pd.DataFrame(columns=('ZDDM','QLRMC','LZQLRMC','QSDH','ZJDH','ZZDH','INDEX','BXZ','BCM'))
+        self.zdcount = self.ZD.shape[0]
+        self.qlrcount = self.ZD.QLRMC.drop_duplicates().shape[0]
+        self.JZX = pd.DataFrame(columns=('ZDDM','QLRMC','LZQLRMC','QSDH','ZJDH','ZZDH','INDEX','BXZ','BCM','BSM','XLXZ','XLCM','XLSM'))
         self.JZD,self.jzd_boundary = self.get_jzd_boundary()
     
     def adjacent_jzdzddm(self,jzd):
@@ -53,8 +50,8 @@ class Ownership:
         return b_xljzd,h_xljzd,q_xljzd
  
     def set_zddm(self,zddm):
-        self.ZD = self.ZD[self.ZD.ZDDM == zddm]
-        self.JZD = self.JZD[self.JZD.ZDDM == zddm]
+        self.ZD = self.ZD[self.ZD.ZDDM.isin(zddm)]
+        self.JZD = self.JZD[self.JZD.ZDDM.isin(zddm)]
         
     def get_coordinates(self,one_gdf):
         # @party_gdf:一行GeoDataFrame数据或GeoSeries
@@ -78,17 +75,15 @@ class Ownership:
         def add_index(x_y,value,V):
             # if V == 87:
             #     pass
-            x = (np.round(x_y,1)*10).astype('int64')[0]
-            y = (np.round(x_y,1)*10).astype('int64')[1]
-            temp = [zddm,x,y,x+y,value,V]
+            temp = [zddm,*(np.round(x_y*10)).astype('int64'),value,V]
             return temp
         
         coor_df = None
         for index,value in enumerate(data['coordinates'][0]):
             if not index:
-                coor_df = pd.DataFrame([add_index(np.array(x),index,V) for V,x in enumerate(value[:len(value)-1])],columns=['ZDDM','X','Y','XY','INDEX','JZDH'])
+                coor_df = pd.DataFrame([add_index(np.array(x),index,V) for V,x in enumerate(value[:len(value)-1])],columns=['ZDDM','X','Y','INDEX','JZDH'])
             else:
-                coor_df = pd.concat([coor_df,pd.DataFrame([add_index(np.array(x),index,V) for V,x in enumerate(value[:len(value)-1])],columns=['ZDDM','X','Y','XY','INDEX','JZDH'])],ignore_index=True)
+                coor_df = pd.concat([coor_df,pd.DataFrame([add_index(np.array(x),index,V) for V,x in enumerate(value[:len(value)-1])],columns=['ZDDM','X','Y','INDEX','JZDH'])],ignore_index=True)
         return coor_df
     
     def get_coordinates_index(self,coordinates):
@@ -108,7 +103,6 @@ class Ownership:
             else:
                 _coordinates = pd.concat([_coordinates,self.get_coordinates(row)],ignore_index=True)
         self.JZD[~self.JZD.X.isin(_coordinates.X) | ~self.JZD.Y.isin(_coordinates.Y)].to_excel('没匹配上的界址点.xlsx')
-        
         return pd.merge(self.JZD,_coordinates,on=['ZDDM','X','Y'], how='inner'),_coordinates
         
     def add_jzx(self,jzd_gdf_):
@@ -118,9 +112,6 @@ class Ownership:
             ZDDM = jzd_gdf_.ZDDM.values[0]
             if index == 0:
                 b_jzd,h_xljzd,q_xljzd = self.adjacent_jzdzddm(row)
-                # h_xljzd = self.jzd_boundary[self.jzd_boundary.X.isin(jzd_gdf_.tail(1).X) & self.jzd_boundary.Y.isin(jzd_gdf_.tail(1).Y) & ~self.jzd_boundary.ZDDM.isin(jzd_gdf_.ZDDM)] # 后面相邻界址点
-                # q_xljzd = self.jzd_boundary[(self.jzd_boundary.X == jzd_gdf_.iloc[1].X) & (self.jzd_boundary.Y == jzd_gdf_.iloc[1].Y) & ~self.jzd_boundary.ZDDM.isin(jzd_gdf_.ZDDM)]   # 前面相邻界址点
-                # b_jzd = self.jzd_boundary[(self.jzd_boundary.X == row.X) & (self.jzd_boundary.Y == row.Y) & ~self.jzd_boundary.ZDDM.isin(jzd_gdf_.ZDDM)]   # 本界址点相邻界址点
                 self.JZX.loc[self.JZX.shape[0],'ZDDM'] = ZDDM
                 self.JZX.loc[self.JZX.shape[0]-1,'QLRMC'] = QLRMC
                 if XLQLRZDDM := list(set(b_jzd.ZDDM) & set(q_xljzd.ZDDM)):
@@ -159,6 +150,8 @@ class Ownership:
                 self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'] = []
                 self.JZX.loc[self.JZX.shape[0]-2,'ZZDH'] = row.JZD_NEW
                 self.JZX.loc[self.JZX.shape[0]-1,'INDEX'] = jzd_gdf_.at[index,'INDEX']
+    def to_JZXexcel(self,path):
+        self.JZX.to_excel(path)
     
     def add_jzx_all(self):
         zddm_df = self.get_zddm()
@@ -166,22 +159,26 @@ class Ownership:
             coordinates_index = self.get_coordinates_index(self.JZD[self.JZD.ZDDM == zddm])
             for index in coordinates_index:
                 log.info(f"{zddm}-{index}")
-                print(f"{zddm}-{index}")
+                yield f"正在生成:{zddm}-{index}"
                 sel_jzd = self.JZD[(self.JZD.ZDDM == zddm) & (self.JZD.INDEX == index)].reset_index()
                 self.add_jzx(sel_jzd)
+    
+    def ZJDH_format(self):
+        for index,row in self.JZX.iterrows():
+            if len(row.ZJDH) == 0:
+                self.JZX.loc[index,'ZJDH'] = ''
+            elif len(row.ZJDH) == 1:
+                self.JZX.loc[index,'ZJDH'] = row.ZJDH[0]
+            elif len(row.ZJDH) == 2:
+                self.JZX.loc[index,'ZJDH'] = '、'.join(row.ZJDH)
+            else:
+                self.JZX.loc[index,'ZJDH'] = f"{row.ZJDH[0]}....{row.ZJDH[-1]}"
+        return self.JZX.fillna('')
                 
 if __name__ == '__main__':
     Ow = Ownership(r'E:\工作文档\SLLJDJZD2.gdb')
+    Ow.set_zddm('三教镇郝家坝村邓家岩村民小组')
     Ow.add_jzx_all()
-    Ow.set_zddm('')
-    # for index,row in Ow.JZX.iterrows():
-    #     if len(row.ZJDH) == 0:
-    #         Ow.JZX.loc[index,'ZJDH'] = ''
-    #     elif len(row.ZJDH) == 1:
-    #         Ow.JZX.loc[index,'ZJDH'] = row.ZJDH[0]
-    #     elif len(row.ZJDH) == 2:
-    #         Ow.JZX.loc[index,'ZJDH'] = '、'.join(row.ZJDH)
-    #     else:
-    #         Ow.JZX.loc[index,'ZJDH'] = f"{row.ZJDH[0]}....{row.ZJDH[-1]}"
+    Ow.ZJDH_format()
     Ow.JZX.to_excel('JZX34324.xlsx')
     

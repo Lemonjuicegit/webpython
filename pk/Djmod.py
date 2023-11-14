@@ -1,5 +1,6 @@
-import logging
-from docx.oxml.ns import qn
+import logging,time
+import traceback,sys
+from functools import wraps
 from docx.shared import Pt
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
@@ -8,22 +9,32 @@ from docxcompose.composer import Composer
 from pathlib import Path
 
 
-
 class Djlog:
-
-    def __init__(self, log_path) -> None:
+    def __init__(self) -> None:
         logging.basicConfig(
             level=logging.INFO,
-            filename=log_path,
-            format=r"%(asctime)s %(filename)s:%(lineno)s %(message)s",
+            filename=f"{time.strftime('%Y%m%d', time.gmtime(time.time()))}.log",
+            format="%(asctime)s %(filename)s:%(lineno)s %(message)s",
             datefmt='%Y-%m-%d %H:%M:%S')
         self.debug = logging.debug
         self.info = logging.info
         self.warning = logging.warning
         self.err = logging.error
-
-
-
+        
+def logErr(log:Djlog):
+    def outwrapper(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except BaseException as e:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                error = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+                log.err(error)
+                return str('err')
+        return wrapper
+    return  outwrapper 
+    
 def compose_docx_file(files, output_file_path):
     """
   合并多个word文件到一个文件中

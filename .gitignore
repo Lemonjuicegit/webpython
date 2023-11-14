@@ -14,3 +14,8 @@
 *.spec
 *.txt
 /template
+/dist
+*.exe
+*.bat
+/所有权资料
+/pk/template

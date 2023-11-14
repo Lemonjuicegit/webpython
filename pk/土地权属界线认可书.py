@@ -1,25 +1,18 @@
 import re
-from docx import Document
 import geopandas as gpd
+import pandas as pd
+from docx import Document
 from docxtpl import DocxTemplate
 from docx.oxml.ns import qn
 from docx.shared import Pt, Cm
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from pathlib import Path
-from config import config
-from Djmod import Djlog, compose_docx
-log = Djlog(config.log_path)
+from . import config
+from . import Djmod
+log = Djmod.Djlog()
 
-gdf_jzx = gpd.read_file(config.gdb_path,layer='JZX')
-gdf_ZD = gpd.read_file(config.gdb_path,layer='ZD')
-gdf_jzd = gpd.read_file(config.gdb_path,layer='JZD')
-gdf_jzx.sort_values(by=['ZDDM','PX'])
-gdf_jzd.sort_values(by=['ZDDM','PX'])
-# gdf_ZD = gdf_ZD[gdf_ZD.QLRMC == '三教镇云龙村彭家院子村民小组']
-
-template_path = Path(config.template_path)
-out_test = Path(config.out_test)
+template_path = Path(config.config.template_path)
 
 # docx文档赋值
 def setCelltext(table_,
@@ -54,13 +47,13 @@ def setCelltext(table_,
         r.font.name = font_name_
         r._element.rPr.rFonts.set(qn('w:eastAsia'), font_name_)
 
-def get_jzd_data():
+def get_jzd_data(gdf_ZD,gdf_jzd):
     result = {}
-    for index, row in gdf_ZD.iterrows():
+    for _, row in gdf_ZD.iterrows():
         jzddf = gdf_jzd[gdf_jzd.ZDDM == row['ZDDM']]
         if row['QLRMC'] not in result:
             result[row['QLRMC']] = {}
-        for index, jzd_row in jzddf.iterrows():
+        for _, jzd_row in jzddf.iterrows():
             try:
                 if row['ZDDM'] not in result[row['QLRMC']]:
                     result[row['QLRMC']][row['ZDDM']] = [{**jzd_row}]
@@ -71,13 +64,9 @@ def get_jzd_data():
 
     return result
 
-
-def get_QLRMC_list():
-    return gdf_ZD['QLRMC'].drop_duplicates().values
-
 def stamp_paralist(sift_jzx):
     result = {}
-    for index,row in sift_jzx.iterrows():
+    for _,row in sift_jzx.iterrows():
         if row['LZQLRMC']:
             if row['LZQLRMC'] not in result:
                 result[row['LZQLRMC']] = {
@@ -91,9 +80,9 @@ def stamp_paralist(sift_jzx):
             else:
                 result[row['LZQLRMC']]['jzdh_para'] = f"{result[row['LZQLRMC']]['jzdh_para']}、{row['QSDH']}至{row['ZZDH']}({row['ZDDM']})"
     return result
-    
-def generate_jxrks(qlr):
-    doc = DocxTemplate(Path(config.template_path)/'土地权属界线认可书.docx')
+
+def generate_jxrks(qlr,gdf_ZD,gdf_jzx):
+    doc = DocxTemplate(template_path/'土地权属界线认可书.docx')
     sift_jzx = gdf_jzx[gdf_jzx.QLRMC == qlr]
     if not sift_jzx.size:
         log.err(f"界线认可书——{qlr}:没有界址线")
@@ -112,7 +101,7 @@ def generate_jxrks(qlr):
         'ZXLSM':'、'.join(XLSM[1:-1]) if XLSM else '',
         'JZLSM':XLSM[-1],
         'TFH':'、'.join(gdf_ZD[gdf_ZD.QLRMC == qlr]['TFH'].drop_duplicates().values),
-        'stamp_paralist':[value for key,value in stamp_paralist(sift_jzx).items()]        
+        'stamp_paralist':[value for value in stamp_paralist(sift_jzx).values()]        
     })
     return doc
          
@@ -130,7 +119,7 @@ def get_jxzx(jzd_jzsm,jzx_jzsm,row):
             result += f"{QSDH}沿着{LZQLRMC}{JZXLB}{ZJDH}到{ZZDH}止，后为曲线。\n"
     return result
 
-def generate_jzsmjb(data_,qlr):
+def generate_jzsmjb(data_,gdf_ZD,gdf_jzd,gdf_jzx,qlr):
     doc = Document(template_path / '界址说明标示表.docx')
     doc.styles['Normal'].font.name = u'方正仿宋_GBK'
     doc.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), u'方正仿宋_GBK')
@@ -145,6 +134,7 @@ def generate_jzsmjb(data_,qlr):
             count += 12
         else:
             count += c * 2
+
     if count < 34:
         count = 34
     for i in range(count):
@@ -226,48 +216,36 @@ def generate_jzsmjb(data_,qlr):
         jzd_jzsm = gdf_jzd[gdf_jzd['ZDDM'] == zddm]
         jzx_jzsm = gdf_jzx[gdf_jzx['ZDDM'] == zddm]
         dwsm += f"{qlr}{zddm}\n"
-        for index, row in jzd_jzsm.iterrows():
+        dwsmdict = {}
+        for _, row in jzd_jzsm.iterrows():
             if row['点位说明']:
-                dwsm += f"{row['JZD_NEW']}位于{row['点位说明']}交界处。\n"
-        for index, row in jzx_jzsm.iterrows():
+                if row['点位说明'] not in dwsmdict:
+                    dwsmdict[row['点位说明']] = row['JZD_NEW']
+                else:
+                    dwsmdict[row['点位说明']] = f"{dwsmdict[row['点位说明']]}、{row['JZD_NEW']}"
+        for key,value in dwsmdict.items():
+            dwsm += f"{value}位于{key}交界处。\n"
+        for _, row in jzx_jzsm.iterrows():
             jxzx += get_jxzx(jzd_jzsm,jzx_jzsm,row)
-    setCelltext(doc.tables[1], 0, 1, dwsm)
-    setCelltext(doc.tables[1], 1, 1, jxzx)
+        setCelltext(doc.tables[1], 0, 1, dwsm)
+        setCelltext(doc.tables[1], 1, 1, jxzx)
     return doc
 
-
-# def generate_jzsmjb(zddmlist,qlr):
-#     doc = DocxTemplate(template_path/'界址说明标示表.docx')
-#     jzx_data = []
-#     dwsm = ''  # 点位说明
-#     jxzx = ''  # 界线走向
-#     tfh = '、'.join(gdf_ZD[gdf_ZD.QLRMC == qlr].TFH.drop_duplicates().values)
-#     LBWZ = {'沟渠':1,'道路':2,'田埂':3,'地埂':4,'山脊':5,'内':6,'中':7,'外':8}
-#     for zddm in zddmlist:
-#         jzd_jzsm = gdf_jzd[gdf_jzd['ZDDM'] == zddm]
-#         jzx_jzsm = gdf_jzx[gdf_jzx['ZDDM'] == zddm]
-#         for index,row in jzx_jzsm.iterrows():
-#             jzx_data.append({'QZJZD':f"{row['QSDH']}-{row['ZZDH']}",
-#                              'lb':LBWZ[row['JZXLB']] if row['JZXLB'] else 0,
-#                              'wz':LBWZ[row['JZXWZ']] if row['JZXLB'] else 0
-#                              })
-#         dwsm += f"{qlr}{zddm}\n"
-#         for index, row in jzd_jzsm.iterrows():
-#             if row['点位说明']:
-#                 dwsm += f"{row['JZD_NEW']}位于{row['点位说明']}交界处。\n"
-#         for index, row in jzx_jzsm.iterrows():
-#             jxzx += get_jxzx(jzd_jzsm,jzx_jzsm,row)
-#     doc.render({'QLRMC':qlr,'TFH':tfh,'DWSM':dwsm,'JXZX':jxzx,'jzx_data':jzx_data })
-#     return doc
+def generate_jxrks_all(gdf_ZD,gdf_jzd,jzx_df,savepath,):
+    qlrs = gdf_ZD['QLRMC'].drop_duplicates().values
+    format_jzd = get_jzd_data(gdf_ZD,gdf_jzd)
+    n = 0
+    for qlr in qlrs:
+        n+=1
+        jxrks = generate_jxrks(qlr,gdf_ZD,jzx_df)
+        jzsmjb = generate_jzsmjb(format_jzd[qlr],gdf_ZD,gdf_jzd,jzx_df,qlr)
+        if not jxrks:
+            log.info(f"{qlr}未出土地权属界线认可书")
+            yield f"{qlr}未出土地权属界线认可书"
+            continue
+        Djmod.compose_docx([jxrks,jzsmjb], Path(savepath)/ f"{qlr}土地权属界线认可书.docx")
+        yield f"{qlr}已出土地权属界线认可书"
 
 if __name__ == '__main__':
-    qlrs = get_QLRMC_list()
-    for qlr in qlrs:
-        print(f"{qlr}土地权属界线认可书")
-        zddmlist = list(gdf_ZD[gdf_ZD.QLRMC == qlr].ZDDM.values)
-        jxrks = generate_jxrks(qlr)
-        jzsmjb = generate_jzsmjb(get_jzd_data()[qlr],qlr)
-        if not jxrks:
-            continue
-        compose_docx([jxrks,jzsmjb], f"{config.savepath}\\{qlr}土地权属界线认可书.docx")
+    pass
         
