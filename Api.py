@@ -43,12 +43,8 @@ class Api:
     
   def generate_qjdc(self,control):
     zd_data_ = gpd.read_file(self.gdb,layer='ZD')
-    jzd_data_ = gpd.read_file(self.gdb,layer='JZD')
-    field_jzd = {'ZDDM','PX','JZD_NEW','JZXLB','JZXWZ','SM','点位说明'} - set(jzd_data_.columns)
-    if field_jzd:
-      return f'界址点字段不正确:{field_jzd}'
     zd_data_ = zd_data_.fillna('')
-    jzd_data_ = jzd_data_.fillna('')
+    jzd_data_ = self.Ow.JZD.fillna('')
     jzd_data_.sort_values(by=['ZDDM','PX'], inplace=True)
     self.handleGenerate_qjdc = generate_qjdc(zd_data_,jzd_data_,self.Ow.JZX,self.savepath,self.jpg_zdct,control)
     return self.Ow.qlrcount

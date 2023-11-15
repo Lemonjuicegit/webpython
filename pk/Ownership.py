@@ -7,11 +7,12 @@ log = Djmod.Djlog()
 class Ownership:
     def __init__(self,gdbpath):
         self.ZD = gpd.read_file(gdbpath,layer='ZD').fillna('')
-        # self.ZD = self.ZD[self.ZD.ZDDM == '500118002020JA10007']
+        # self.ZD = self.ZD[self.ZD.ZDDM == '500118002020JA10031']
         self.JZD = gpd.read_file(gdbpath,layer='JZD').fillna('')
+        self.JZD.sort_values(by=['ZDDM','PX'],inplace=True)
         self.JZD['X'] = np.round(self.JZD.geometry.x*10).astype('int64')
         self.JZD['Y'] = np.round(self.JZD.geometry.y*10).astype('int64')
-        # self.JZD = self.JZD[self.JZD.ZDDM == '500118002020JA10007']
+        # self.JZD = self.JZD[self.JZD.ZDDM == '500118002020JA10031']
         # self.get_coordinates(self.ZD)
         self.JZD_All = gpd.read_file(gdbpath,layer='ZD_All')
         self.zdcount = self.ZD.shape[0]
@@ -151,7 +152,7 @@ class Ownership:
                 self.JZX.loc[self.JZX.shape[0]-2,'ZZDH'] = row.JZD_NEW
                 self.JZX.loc[self.JZX.shape[0]-1,'INDEX'] = jzd_gdf_.at[index,'INDEX']
     def to_JZXexcel(self,path):
-        self.JZX.to_excel(path)
+        self.JZX.to_excel(path,index=False)
     
     def add_jzx_all(self):
         zddm_df = self.get_zddm()
@@ -159,9 +160,9 @@ class Ownership:
             coordinates_index = self.get_coordinates_index(self.JZD[self.JZD.ZDDM == zddm])
             for index in coordinates_index:
                 log.info(f"{zddm}-{index}")
-                yield f"正在生成:{zddm}-{index}"
                 sel_jzd = self.JZD[(self.JZD.ZDDM == zddm) & (self.JZD.INDEX == index)].reset_index()
                 self.add_jzx(sel_jzd)
+            yield f"正在生成:{zddm}"
     
     def ZJDH_format(self):
         for index,row in self.JZX.iterrows():

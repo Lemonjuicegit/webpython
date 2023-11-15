@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import pandas as pd
 import geopandas as gpd
@@ -22,7 +23,6 @@ def get_folder_path():
   folder_path = window.create_file_dialog(webview.FOLDER_DIALOG)
   return folder_path
 
-
 def set_save(savepath):
   api.savepath = savepath
 
@@ -43,7 +43,7 @@ def createLine(end):
   if end == 1:
     api.jzx = api.Ow.add_jzx_all()
     api.Ow.JZX = api.Ow.ZJDH_format()
-    return api.Ow.JZX.to_json()
+    return json.dumps({'data':json.loads(api.Ow.JZX.to_json(orient="records")),'res':res})
   return res
 
 def set_jzx_excel(jzxpath):
@@ -59,9 +59,9 @@ def to_JZXexcel():
   if not api.Ow.JZX.shape[0]:
     return '没有界址线数据'
   if not api.savepath:
-    api.Ow.to_JZXexcel('JZX.xlsx',index=False)
+    api.Ow.to_JZXexcel('JZX.xlsx')
   else:
-    api.Ow.to_JZXexcel(Path(api.savepath) / 'JZX.xlsx',index=False)
+    api.Ow.to_JZXexcel(Path(api.savepath) / 'JZX.xlsx')
   return '界址线数据导出成功'
 
 
@@ -73,10 +73,10 @@ def generate_qjdc(control):
   return api.generate_qjdc(control)
 
 @logErr(log)
-def handleGenerate_qjdc(end):
+def handleGenerate_qjdc(end,control):
   res = next(api.handleGenerate_qjdc)
   if end == 1:
-    api.generate_qjdc()
+    return api.generate_qjdc(control)
   return res
 
 def get_qlrcount():
@@ -85,27 +85,26 @@ def get_qlrcount():
   return api.Ow.qlrcount
 
 @logErr(log)
-def generate_rks(gdb,jzxpath,savepath):
+def generate_rks(gdb,jzxpath,savepath,control):
   jzx_df = pd.read_excel(jzxpath)
   jzx_df = jzx_df.fillna('')
-  jzd = gpd.read_file(gdb,layer='JZD')
-  api.rks =  generate_jxrks_all(api.Ow.ZD,jzd,jzx_df,savepath)
+  api.rks =  generate_jxrks_all(api.Ow.ZD,api.Ow.JZD,jzx_df,savepath,control)
   return '界址线数据读取成功'
 
 @logErr(log)
-def jxrks_all(end,gdb='',jzxpath='',savepath=''):
+def jxrks_all(end,gdb='',jzxpath='',savepath='',control={}):
   if not api.Ow.qlrcount:
     return '没有权利人信息'
   res = next(api.rks)
   if end == 1:
     jzx_df = pd.read_excel(jzxpath)
     jzx_df = jzx_df.fillna('')
-    jzd = gpd.read_file(gdb,layer='JZD')
-    api.rks =  generate_jxrks_all(api.Ow.ZD,jzd,jzx_df,savepath)
+    api.rks =  generate_jxrks_all(api.Ow.ZD,api.Ow.JZD,jzx_df,savepath,control)
   return res
 
 @logErr(log)
 def generate_jzdcg(gdb,save_path):
+  # 创建界址点成果表生成器
   if not save_path:
     return 0
   jzd = gpd.read_file(gdb,layer='JZD')
@@ -114,6 +113,7 @@ def generate_jzdcg(gdb,save_path):
 
 @logErr(log)
 def jzdcg_all(end=0,gdb='',savepath=''):
+  # 导出所有界址点成果表
     if not api.Ow.qlrcount:
       return '没有权利人信息'
     res = next(api.jzdcg)
@@ -161,9 +161,9 @@ def expose(window):
   for name in funlist:
     window.evaluate_js(f'pywebview.api.{name}')
 
-# window = webview.create_window('所有权资料生成', 'http://localhost:5173/',resizable=False,width=1200,height=800)
-window = webview.create_window('所有权资料生成', './dist/index.html',resizable=False,width=1200,height=800)
+window = webview.create_window('所有权资料生成', 'http://localhost:5173/',resizable=False,width=1200,height=800)
+# window = webview.create_window('所有权资料生成', './dist/index.html',resizable=False,width=1200,height=800)
 
-webview.start(expose,window)
+webview.start(expose,window,debug=True)
 
 

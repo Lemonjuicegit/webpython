@@ -1,8 +1,8 @@
-#include <Python.h>  
+#include <windows.h>  
   
-int main(int argc, char *argv[]) {  
-    Py_Initialize();  
-    PyRun_SimpleFile("./main.py");
-    Py_Finalize();  
+int main() {  
+    // 执行cmd命令，不弹出窗口  
+    ShellExecute(NULL, "open", "cmd.exe", "/c python main.py", NULL, SW_HIDE);  
     return 0;  
 }
+

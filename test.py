@@ -1,12 +1,15 @@
-from pk.界址点成果表 import generate_jzdcg_all
-from geopandas import gpd
+from pk.土地权属界线认可书 import generate_jxrks_all
+import pandas as pd
+from pk.Ownership import Ownership
 
-gdb  = r"E:\工作文档\新建文件夹\4青峰镇.gdb"
+jzx = ''
+gdb = 'E:\工作文档\daanchenshi.gdb'
+# jzxdf = pd.read_excel(jzx)
 
-ZD = gpd.read_file(gdb,layer="ZD")
-JZD = gpd.read_file(gdb,layer='JZD')
+Ow = Ownership(gdb)
 
-aa = generate_jzdcg_all(JZD,ZD,r'E:\工作文档\测试导出数据')
-
-for a in aa:
-    print(a)
+generate_jzx = Ow.add_jzx_all()
+for u in generate_jzx:
+    print(u)
+    
+Ow.JZX.to_excel(r'E:\工作文档\测试导出数据\jzx.xlsx')
