@@ -73,7 +73,7 @@ def generate_qjdc(control):
   return api.generate_qjdc(control)
 
 @logErr(log)
-def handleGenerate_qjdc(end,control):
+def handleGenerate_qjdc(end,control={}):
   res = next(api.handleGenerate_qjdc)
   if end == 1:
     return api.generate_qjdc(control)
@@ -136,6 +136,11 @@ def Area_table(end=0,datapath='',df_fda='',savepath=''):
       api.classifiedArea =  Area_table_all(df,df_fda,savepath)
     return res
 
+@logErr(log)
+def to_jzxshp():
+  api.Ow.to_jzxshp(f"{api.savepath}\\界址线.shp")
+  return '导出界址线矢量成功'
+
 def expose(window):
   funlist = [
     get_file_path,
@@ -155,15 +160,16 @@ def expose(window):
     generate_jzdcg,
     jzdcg_all,
     generate_Area,
-    Area_table
+    Area_table,
+    to_jzxshp
   ]
   window.expose(*funlist)
   for name in funlist:
     window.evaluate_js(f'pywebview.api.{name}')
 
-window = webview.create_window('所有权资料生成', 'http://localhost:5173/',resizable=False,width=1200,height=800)
-# window = webview.create_window('所有权资料生成', './dist/index.html',resizable=False,width=1200,height=800)
+# window = webview.create_window('所有权资料生成', 'http://localhost:5173/',resizable=False,width=1200,height=800)
+window = webview.create_window('所有权资料生成', './dist/index.html',resizable=False,width=1200,height=800)
 
-webview.start(expose,window,debug=True)
+webview.start(expose,window) # type: ignore
 
 

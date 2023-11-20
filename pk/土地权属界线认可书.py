@@ -1,6 +1,4 @@
 import re
-import geopandas as gpd
-import pandas as pd
 from docx import Document
 from docxtpl import DocxTemplate
 from docx.oxml.ns import qn
@@ -46,25 +44,6 @@ def setCelltext(table_,
         r = table_.rows[row_].cells[cell_].paragraphs[paragraph_].runs[run_]
         r.font.name = font_name_
         r._element.rPr.rFonts.set(qn('w:eastAsia'), font_name_)
-
-def get_jzd_data(gdf_ZD,gdf_jzd):
-    result = {}
-    for _, row in gdf_ZD.iterrows():
-        jzddf = gdf_jzd[gdf_jzd['ZDDM'] == row['ZDDM']]
-        boundary_index = jzddf.INDEX.drop_duplicates()
-        if row['QLRMC'] not in result:
-            result[row['QLRMC']] = {}
-        for index in boundary_index:
-            jzd_boundary = jzddf[jzddf['INDEX'] == index]
-            for _, jzd_row in jzd_boundary.iterrows():
-                if row['ZDDM'] not in result[row['QLRMC']]:
-                    result[row['QLRMC']][row['ZDDM']] = {index:[{**jzd_row}]}
-                else:
-                    if index not in result[row['QLRMC']][row['ZDDM']]:
-                        result[row['QLRMC']][row['ZDDM']] = {index:[{**jzd_row}]}
-                    else:    
-                        result[row['QLRMC']][row['ZDDM']][index].append({**jzd_row})
-    return result
 
 def stamp_paralist(sift_jzx):
     result = {}
@@ -121,15 +100,18 @@ def get_jxzx(jzd_jzsm,jzx_jzsm,row):
             result += f"{QSDH}沿着{LZQLRMC}{JZXLB}{ZJDH}到{ZZDH}止，后为曲线。\n"
     return result
 
-def generate_jzsmjb(data_,gdf_ZD,gdf_jzd,gdf_jzx,qlr):
-    doc = Document(template_path / '界址说明标示表.docx')
+def generate_jzsmjb(gdf_ZD,gdf_jzd,gdf_jzx,qlr):
+    doc = Document(template_path / '界址说明标示表.docx') # type: ignore
+    data_ = gdf_jzd.copy()
     doc.styles['Normal'].font.name = u'方正仿宋_GBK'
     doc.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), u'方正仿宋_GBK')
     tfh = '、'.join(gdf_ZD[gdf_ZD.QLRMC == qlr].TFH.drop_duplicates().values)
     cell = doc.tables[0].cell
     setCelltext(doc.tables[0], 0, 4, qlr)
     setCelltext(doc.tables[0], 1, 4, tfh)
-    countlist = [len(i) for boundary in data_.values() for i in boundary.values()]
+    countlist = [c for c in Djmod.groupby(data_,['ZDDM','INDEX'],'count').COUNT]
+    data_['ZDDM_INDEX'] = data_.ZDDM.str.cat(data_.INDEX.astype(str))
+    zddm_index = data_['ZDDM_INDEX'].drop_duplicates()
     count = len(countlist) * 2
     for c in countlist:
         if c > 6:
@@ -152,67 +134,68 @@ def generate_jzsmjb(data_,gdf_ZD,gdf_jzd,gdf_jzx,qlr):
     num = 0
     JZXLB_dict = {'沟渠':1,'道路':2,'田埂':3,'地埂':4,'山脊':5}
     JZXWZ_dict = {'内':6,'中':7,'外':8}
-    for zddm,jdz_boundary in data_.items():
-        for zddm,jdz_row in jdz_boundary.items():
-            if len(jdz_row) == 0:
-                continue
-            if len(jdz_row) <= 6:
-                for row in jdz_row:
-                    setCelltext(doc.tables[0], num + 4, 0, row['JZD_NEW'])
-                    if row['JZXLB'] in JZXLB_dict:
-                        setCelltext(doc.tables[0], num + 5, JZXLB_dict[row['JZXLB']], '√')
+    for z_i in zddm_index:
+        zddm = z_i[:19]
+        jdz_boundary = data_[data_.ZDDM_INDEX == z_i].reset_index()
+        if jdz_boundary.shape[0] == 0:
+            continue
+        if jdz_boundary.shape[0] <= 6:
+            for _,row in jdz_boundary.iterrows():
+                setCelltext(doc.tables[0], num + 4, 0, row['JZD_NEW'])
+                if row['JZXLB'] in JZXLB_dict:
+                    setCelltext(doc.tables[0], num + 5, JZXLB_dict[row['JZXLB']], '√')
+                else:
+                    log.err(f"{zddm}-{row['JZD_NEW']}:界址线类别填写不正确")    
+
+                if row['JZXWZ'] in JZXWZ_dict:
+                    setCelltext(doc.tables[0], num + 5, JZXWZ_dict[row['JZXWZ']], '√')
+                else:
+                    log.err(f"{zddm}-{row['JZD_NEW']}:界址线位置填写不正确") 
+                num += 2 
+
+            setCelltext(doc.tables[0], num + 4, 0, jdz_boundary.at[0,'JZD_NEW'])
+            num += 2
+        else:
+            for i in range(6):
+                if i < 3:
+                    JZD_NEW =   jdz_boundary.at[i,'JZD_NEW']
+                    JZXLB   =   jdz_boundary.at[i,'JZXLB']
+                    JZXWZ   =   jdz_boundary.at[i,'JZXWZ']
+                    setCelltext(doc.tables[0], num + 4, 0,JZD_NEW)
+                    if JZXLB in JZXLB_dict:
+                        setCelltext(doc.tables[0], num + 5, JZXLB_dict[JZXLB], '√')
                     else:
-                        log.err(f"{zddm}-{row['JZD_NEW']}:界址线类别填写不正确")    
-
-                    if row['JZXWZ'] in JZXWZ_dict:
-                        setCelltext(doc.tables[0], num + 5, JZXWZ_dict[row['JZXWZ']], '√')
-                    else:
-                        log.err(f"{zddm}-{row['JZD_NEW']}:界址线位置填写不正确") 
-                    num += 2 
-
-                setCelltext(doc.tables[0], num + 4, 0, jdz_boundary[key][0]['JZD_NEW'])
-                num += 2
-            else:
-                for i in range(6):
-                    if i < 3:
-                        JZD_NEW =   jdz_row[i]['JZD_NEW']
-                        JZXLB   =   jdz_row[i]['JZXLB']
-                        JZXWZ   =   jdz_row[i]['JZXWZ']
-                        setCelltext(doc.tables[0], num + 4, 0,JZD_NEW)
-                        if JZXLB in JZXLB_dict:
-                            setCelltext(doc.tables[0], num + 5, JZXLB_dict[JZXLB], '√')
-                        else:
-                            log.err(f"{zddm}-{JZD_NEW}:界址线类别填写不正确")
-                            
-                        if JZXWZ in JZXWZ_dict:
-                            setCelltext(doc.tables[0], num + 5, JZXWZ_dict[JZXWZ], '√')
-                        else:
-                            log.err(f"{zddm}-{JZD_NEW}:界址线位置填写不正确")     
-
-                        num += 2
-                    elif i == 4:
-                        setCelltext(doc.tables[0], num + 4, 0, '.....')
-                        setCelltext(doc.tables[0], num + 4, 3, '√')
-                        setCelltext(doc.tables[0], num + 4, 7, '√')
-                        num += 2
-                    elif i > 4:
-                        JZD_NEW =   jdz_row[-1]['JZD_NEW']
-                        JZXLB   =   jdz_row[-1]['JZXLB']
-                        JZXWZ   =   jdz_row[-1]['JZXWZ']
-                        setCelltext( doc.tables[0], num + 4, 0,JZD_NEW)
+                        log.err(f"{zddm}-{JZD_NEW}:界址线类别填写不正确")
                         
-                        if JZXLB in JZXLB_dict:
-                            setCelltext(doc.tables[0], num + 5, JZXLB_dict[JZXLB], '√')
-                        else:
-                            log.err(f"{zddm}-{JZD_NEW}:界址线类别填写不正确")
-                            
-                        if JZXWZ in JZXWZ_dict:
-                            setCelltext(doc.tables[0], num + 5, JZXWZ_dict[JZXWZ], '√')
-                        else:
-                            log.err(f"{zddm}-{JZD_NEW}:界址线位置填写不正确")     
-                        num += 2
-                setCelltext(doc.tables[0], num + 4, 0, jdz_boundary[key][0]['JZD_NEW'])
-                num += 2
+                    if JZXWZ in JZXWZ_dict:
+                        setCelltext(doc.tables[0], num + 5, JZXWZ_dict[JZXWZ], '√')
+                    else:
+                        log.err(f"{zddm}-{JZD_NEW}:界址线位置填写不正确")     
+
+                    num += 2
+                elif i == 4:
+                    setCelltext(doc.tables[0], num + 4, 0, '.....')
+                    setCelltext(doc.tables[0], num + 4, 3, '√')
+                    setCelltext(doc.tables[0], num + 4, 7, '√')
+                    num += 2
+                elif i > 4:
+                    JZD_NEW =   jdz_boundary.iloc[-1].JZD_NEW
+                    JZXLB   =   jdz_boundary.iloc[-1].JZXLB
+                    JZXWZ   =   jdz_boundary.iloc[-1].JZXWZ
+                    setCelltext( doc.tables[0], num + 4, 0,JZD_NEW)
+                    
+                    if JZXLB in JZXLB_dict:
+                        setCelltext(doc.tables[0], num + 5, JZXLB_dict[JZXLB], '√')
+                    else:
+                        log.err(f"{zddm}-{JZD_NEW}:界址线类别填写不正确")
+                        
+                    if JZXWZ in JZXWZ_dict:
+                        setCelltext(doc.tables[0], num + 5, JZXWZ_dict[JZXWZ], '√')
+                    else:
+                        log.err(f"{zddm}-{JZD_NEW}:界址线位置填写不正确")     
+                    num += 2
+            setCelltext(doc.tables[0], num + 4, 0, jdz_boundary.at[0,'JZD_NEW'])
+            num += 2
         
         dwsm = ''  # 点位说明
         jxzx = ''  # 界线走向
@@ -236,9 +219,10 @@ def generate_jzsmjb(data_,gdf_ZD,gdf_jzd,gdf_jzx,qlr):
 
 def generate_jxrks_all(gdf_ZD,gdf_jzd,jzx_df,savepath,control):
     qlrs = gdf_ZD['QLRMC'].drop_duplicates().values
-    format_jzd = get_jzd_data(gdf_ZD,gdf_jzd)
+    
     for qlr in qlrs:
         doclist = []
+        jzjb_data = gdf_jzd[gdf_jzd.ZDDM.isin(gdf_ZD[gdf_ZD.QLRMC == qlr].ZDDM)]
         if control['jxrks']:
             jxrks = generate_jxrks(qlr,gdf_ZD,jzx_df)
             if not jxrks:
@@ -247,9 +231,9 @@ def generate_jxrks_all(gdf_ZD,gdf_jzd,jzx_df,savepath,control):
                 continue
             doclist.append(jxrks)
         if control['jzsmjb']:
-            jzsmjb = generate_jzsmjb(format_jzd[qlr],gdf_ZD,gdf_jzd,jzx_df,qlr)
+            jzsmjb = generate_jzsmjb(gdf_ZD,jzjb_data,jzx_df,qlr)
             doclist.append(jzsmjb)
-        Djmod.compose_docx(doclist, Path(savepath)/ f"{qlr}界线认可书.docx")
+        Djmod.compose_docx(doclist, Path(savepath)/ f"{qlr}界线认可书.docx") # type: ignore
         yield f"{qlr}已出认可书"
 
 if __name__ == '__main__':

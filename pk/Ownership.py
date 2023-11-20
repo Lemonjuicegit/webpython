@@ -1,7 +1,7 @@
 import geopandas as gpd
 import pandas as pd
 import numpy as np
-from shapely.geometry import MultiPolygon,mapping
+from shapely.geometry import MultiPolygon,mapping,LineString
 from . import Djmod
 log = Djmod.Djlog()
 class Ownership:
@@ -79,7 +79,7 @@ class Ownership:
             temp = [zddm,*(np.round(x_y*10)).astype('int64'),value,V]
             return temp
         
-        coor_df = None
+        coor_df = pd.DataFrame()
         for index,value in enumerate(data['coordinates'][0]):
             if not index:
                 coor_df = pd.DataFrame([add_index(np.array(x),index,V) for V,x in enumerate(value[:len(value)-1])],columns=['ZDDM','X','Y','INDEX','JZDH'])
@@ -164,17 +164,53 @@ class Ownership:
                 self.add_jzx(sel_jzd)
             yield f"正在生成:{zddm}"
     
+    def to_jzxshp(self,savepath):
+        JZXDF = self.ZJDH_format()
+        JZXDF['ZDDM_INDEX'] = JZXDF.ZDDM.str.cat(JZXDF.INDEX.astype(str))
+        jzx = gpd.GeoDataFrame(columns=[*JZXDF.columns,'geometry'],crs=self.ZD.crs) # type: ignore
+        zd_node = pd.DataFrame(columns=('QLRMC','ZDDM','INDEX','ZDDM_INDEX','N','X','Y'))
+        for index,row in self.ZD.iterrows():
+            geojson = mapping(row.geometry)
+            n = 0
+            for index,value in enumerate(geojson['coordinates'][0]):
+                zd_node_row = [{'QLRMC':row.QLRMC,'ZDDM':row.ZDDM,'INDEX':index,'ZDDM_INDEX':row.ZDDM+str(index),'N':n+1,'X':coor[0],'Y':coor[1]} for n,coor in enumerate(value[:len(value)-1])]
+                if not zd_node.shape[0]:
+                    zd_node = pd.DataFrame(zd_node_row)
+                else:
+                    zd_node = pd.concat([zd_node,pd.DataFrame(zd_node_row)],ignore_index=True)
+        zd_node['int_X'] = np.round(zd_node.X*10).astype('int64')
+        zd_node['int_Y'] = np.round(zd_node.Y*10).astype('int64')
+        for index,value in JZXDF.iterrows():
+            ZD_boundary = zd_node[zd_node.ZDDM_INDEX == value.ZDDM_INDEX].reset_index()
+            q_jzd = self.JZD[(self.JZD.ZDDM ==value.ZDDM) & (self.JZD.JZD_NEW == value.QSDH)]
+            z_jzd = self.JZD[(self.JZD.ZDDM ==value.ZDDM) & (self.JZD.JZD_NEW == value.ZZDH)]
+            q_line_index = ZD_boundary[(ZD_boundary.int_X==q_jzd.X.values[0]) & (ZD_boundary.int_Y==q_jzd.Y.values[0])].index[0]
+            z_line_index = ZD_boundary[(ZD_boundary.int_X==z_jzd.X.values[0]) & (ZD_boundary.int_Y==z_jzd.Y.values[0])].index[0]
+            xy_list = []
+            if q_line_index>=z_line_index:
+                max_index = np.max(ZD_boundary.index.values)
+                q_line_df = ZD_boundary.iloc[q_line_index:max_index+1]
+                h_line_df = ZD_boundary.iloc[0:z_line_index+1]
+                xy_list = list(zip(list(q_line_df.X),list(q_line_df.Y))) + list(zip(list(h_line_df.X),list(h_line_df.Y)))
+            else:  
+                line_df = ZD_boundary[q_line_index:z_line_index+1]
+                xy_list = list(zip(list(line_df.X),list(line_df.Y)))
+            jzx.loc[index] = [*[v for v in value.values],LineString(xy_list)]
+        jzx.to_file(savepath,encoding='gb18030',crs=self.ZD.crs)
+    
     def ZJDH_format(self):
-        for index,row in self.JZX.iterrows():
+        jzxcopy = self.JZX.copy()
+        for index,row in jzxcopy.iterrows():
             if len(row.ZJDH) == 0:
-                self.JZX.loc[index,'ZJDH'] = ''
+                jzxcopy.loc[index,'ZJDH'] = ''
             elif len(row.ZJDH) == 1:
-                self.JZX.loc[index,'ZJDH'] = row.ZJDH[0]
+                jzxcopy.loc[index,'ZJDH'] = row.ZJDH[0]
             elif len(row.ZJDH) == 2:
-                self.JZX.loc[index,'ZJDH'] = '、'.join(row.ZJDH)
+                jzxcopy.loc[index,'ZJDH'] = '、'.join(row.ZJDH)
             else:
-                self.JZX.loc[index,'ZJDH'] = f"{row.ZJDH[0]}....{row.ZJDH[-1]}"
-        return self.JZX.fillna('')
+                jzxcopy.loc[index,'ZJDH'] = f"{row.ZJDH[0]}....{row.ZJDH[-1]}"
+        return jzxcopy.fillna('')
+    
                 
 if __name__ == '__main__':
     Ow = Ownership(r'E:\工作文档\SLLJDJZD2.gdb')

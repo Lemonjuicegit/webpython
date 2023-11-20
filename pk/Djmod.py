@@ -1,5 +1,6 @@
 import logging,time
 import traceback,sys
+import pandas as pd
 from functools import wraps
 from docx.shared import Pt
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
@@ -8,9 +9,24 @@ from docx import Document
 from docxcompose.composer import Composer
 from pathlib import Path
 
+def groupby(df:pd.DataFrame,by:list[str],agg:str):
+    '''agg:[
+        'any','all','count','cov','first','idxmax',
+        'idxmin','last','max','mean','median','min',
+        'nunique','prod','quantile','sem','size',
+        'skew','std','sum','var'
+    ]
+    '''
+    Aggfield = agg.upper()
+    df2 = df.copy()
+    df2[Aggfield] = ''
+    by_df = pd.DataFrame(df2.groupby(by=by)[Aggfield].agg(agg))
+    by_df.reset_index(inplace=True)
+    return by_df
 
 class Djlog:
     def __init__(self) -> None:
+        # 日志输出
         logging.basicConfig(
             level=logging.INFO,
             filename=f"{time.strftime('%Y%m%d', time.gmtime(time.time()))}.log",
@@ -21,7 +37,8 @@ class Djlog:
         self.warning = logging.warning
         self.err = logging.error
         
-def logErr(log:Djlog):
+def logErr(log:Djlog):# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:
+    # 错误日志输出
     def outwrapper(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -74,32 +91,6 @@ def compose_docx(docxlist, output_file_path:str):
         n += 1
     composer.save(output_file_path)
 
-
-# def get_shp_data(shppath, field, where=''):
-#     fieles = {
-#         'SHAPE@XY', 'SHAPE@XYZ', 'SHAPE@TRUECENTROID', 'SHAPE@X',
-#         'SHAPE@Y', 'SHAPE@Z', 'SHAPE@M', 'SHAPE@JSON', 'SHAPE@WKB',
-#         'SHAPE@WKT', 'SHAPE@', 'SHAPE@AREA', 'SHAPE@LENGTH', 'OID@'
-#     }
-#     for fie in arcpy.ListFields(shppath):
-#         fieles.add(fie.name)
-#     if set(field) - fieles:
-#         raise RuntimeError(f"{set(field) - fieles} 字段不匹配")
-#     data = []
-#     if where:
-#         with arcpy.da.SearchCursor(shppath, field,
-#                                    where_clause=where) as cursor:
-#             for row in cursor:
-#                 data.append(dict(zip(field, row)))
-#     else:
-#         with arcpy.da.SearchCursor(shppath, field,
-#                                    where_clause=where) as cursor:
-#             for row in cursor:
-#                 data.append(dict(zip(field, row)))
-
-#     return data
-
-
 def docxtabel_indaex(docxtabel, is_run=False):
     # 生成索引
     row = docxtabel.rows
@@ -137,7 +128,6 @@ def docxpar_indaex(docxtabel):
 
 
 def setCelltext(table_, row_, cell_, text_, fontname_='', font_size_=Pt(10.5)):
-    #
     """
     word单元格居中赋值
   Args:

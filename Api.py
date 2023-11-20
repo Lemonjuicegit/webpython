@@ -12,7 +12,7 @@ class Api:
     self.Ow = None
     self.gdb = None
     self.jzx = None     # 直接生成的界址线生成器
-    self.jzx_df = None
+    self.jzx_df = None  # 认可书要使用的界址线信息
     self.handleGenerate_qjdc = None
     self.savepath = None
     self.jpg_zdct = None
