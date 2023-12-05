@@ -53,11 +53,11 @@ def setCelltext(table_,
         r._element.rPr.rFonts.set(qn('w:eastAsia'), font_name_)
 
 # 宗地数据格式化
-def get_zd_data(zd_data,jzx_data):
+def get_zd_data(zd_data,jzx_data,jzd_gdf):
     tidyup = {}
     n = 0
     # 宗地数据格式化
-    for index, row in zd_data.iterrows():
+    for _, row in zd_data.iterrows():
         if row['QLRMC'] not in tidyup:
             n = 1
             tidyup[row['QLRMC']] = {
@@ -82,19 +82,20 @@ def get_zd_data(zd_data,jzx_data):
             tidyup[row['QLRMC']]['ZDDM_list'].add(row['ZDDM'])
     for _, row in jzx_data.iterrows():
         try:
-            xlzl = zd_data[zd_data['ZDDM'] == row['ZDDM']]
+            xlzl = jzd_gdf[jzd_gdf['ZDDM'] == row['ZDDM']]
             tidyup[row['QLRMC']]['jzx_data'].append({
                 'QLRMC':row['QLRMC'],
                 'QSDH':row['QSDH'],
                 'ZJDH':row['ZJDH'],
                 'ZZDH':row['ZZDH'],
                 'LZQLRMC':row['LZQLRMC'] if row['LZQLRMC'] else '',
-                'qz1':f"详见{row['LZQLRMC']}界线认可书" if row['LZQLRMC'] else '',
+                'qz1':f"详见{row['LZQLRMC']}界线认可书" if row['LZQLRMC'].find('村民小组') != -1 else '',
                 'qz2':f"详见{row['QLRMC']}界线认可书" if row['QLRMC'] else '',
-                'dkm':xlzl.loc[xlzl.index[0], '飞地坐落'] if xlzl.loc[xlzl.index[0],'飞地坐落'] else '',
+                'dkm':xlzl.loc[xlzl.index[0], 'SM'] if xlzl.loc[xlzl.index[0],'SM'] else '',
             })
         except KeyError:
             log.err(f"界址线与宗地不匹配: {row['ZDDM']}")
+    # tidyup = {'双石镇丁家岩村楠竹林村民小组':tidyup['双石镇丁家岩村楠竹林村民小组']}
     return tidyup
 
 def generate_head(zddm):
@@ -159,6 +160,7 @@ def generate_jzjb(jzddf):
                     
                 if row['SM']:
                     setCelltext(doc.tables[0], num + 4, 11, row['SM'])
+                    doc.tables[0].cell(num + 4,11).paragraphs[0].runs[0].font.size = Pt(7.5)
                 num += 2
             setCelltext(doc.tables[0], num + 3, 0, jdz_boundary.at[0,'JZD_NEW'])
             num += 2
@@ -182,9 +184,10 @@ def generate_jzjb(jzddf):
 
                     if SM :
                         setCelltext(doc.tables[0], num + 4, 11,SM )
+                        doc.tables[0].cell(num + 4,11).paragraphs[0].runs[0].font.size = Pt(7.5)
                     num += 2
                 elif i == 4:
-                    setCelltext(doc.tables[0], num + 3, 0, '.....')
+                    setCelltext(doc.tables[0], num + 3, 0, '. . .')
                     setCelltext(doc.tables[0], num + 3, 5, '√')
                     setCelltext(doc.tables[0], num + 3, 9, '√')
                     num += 2
@@ -204,58 +207,29 @@ def generate_jzjb(jzddf):
                         log.err(f"{zddm}-{JZD_NEW}:界址线位置填写不正确")     
                     if SM:
                         setCelltext(doc.tables[0], num + 4, 11, SM)
+                        doc.tables[0].cell(num + 4,11).paragraphs[0].runs[0].font.size = Pt(7.5)
                     num += 2
             setCelltext(doc.tables[0], num + 3, 0, jdz_boundary.at[0,'JZD_NEW'])
             num += 2
-    par_ = doc.add_paragraph()
-    par_.text = '说明：界址点标示示意情况详见集体土地所有权范围图。'
-    par_.runs[0].font.size = Pt(10)
     return doc
 
 # 界址签章表组件
-def add_jzqz(table, data):
-    table.add_row()
-    setCelltext(table,len(table.rows) - 1,0, data['QSDH'],font_name_='Times New Roman')
-    if data['ZJDH']:
-        setCelltext(table,len(table.rows) - 1,1,data['ZJDH'],font_name_='Times New Roman')
-    setCelltext(table,len(table.rows) - 1,2,data['ZZDH'],font_name_='Times New Roman')
-    setCelltext(table, len(table.rows) - 1, 3, data['LZQLRMC'])
-    if re.search('村民小组', data['LZQLRMC']):
-        setCelltext(table, len(table.rows) - 1, 4, data['qz1'])
-    setCelltext(table, len(table.rows) - 1, 5, data['qz2'])
-    setCelltext(table, len(table.rows) - 1, 7, data['dkm'])
+# def add_jzqz(table, data):
+#     table.add_row()
+#     setCelltext(table,len(table.rows) - 1,0, data['QSDH'],font_name_='Times New Roman')
+#     if data['ZJDH']:
+#         setCelltext(table,len(table.rows) - 1,1,data['ZJDH'],font_name_='Times New Roman')
+#     setCelltext(table,len(table.rows) - 1,2,data['ZZDH'],font_name_='Times New Roman')
+#     setCelltext(table, len(table.rows) - 1, 3, data['LZQLRMC'])
+#     if re.search('村民小组', data['LZQLRMC']):
+#         setCelltext(table, len(table.rows) - 1, 4, data['qz1'])
+#     setCelltext(table, len(table.rows) - 1, 5, data['qz2'])
+#     setCelltext(table, len(table.rows) - 1, 7, data['dkm'])
 
 # 界址签章表
 def generate_jzqz(data):
-    doc = Document()
-    doc.styles['Normal'].font.name = u'方正仿宋_GBK'
-    doc.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), u'方正仿宋_GBK')
-    doc.add_table(3, 8, style='Table Grid')
-    doc.tables[0].rows[0].height = Cm(1)
-    doc.tables[0].rows[1].height = Cm(0.7)
-    cell = doc.tables[0].cell
-    setCelltext(doc.tables[0], 0, 0, '界址签章表')
-    cell(0, 0).merge(cell(0, 7))
-
-    setCelltext(doc.tables[0], 1, 0, '界址线')
-    cell(1, 0).merge(cell(1, 2))
-
-    setCelltext(doc.tables[0], 1, 3, '邻宗地')
-    cell(1, 3).merge(cell(1, 4))
-    setCelltext(doc.tables[0], 1, 5, '本宗地')
-    setCelltext(doc.tables[0], 1, 6, '日期')
-    setCelltext(doc.tables[0], 1, 7, '地块名')
-    setCelltext(doc.tables[0], 2, 0, '起点号')
-    setCelltext(doc.tables[0], 2, 1, '中间点')
-    setCelltext(doc.tables[0], 2, 2, '终点号')
-    setCelltext(doc.tables[0], 2, 3, '相邻宗地权利人（宗地号）')
-    setCelltext(doc.tables[0], 2, 4, '指界人姓名（签章）')
-    setCelltext(doc.tables[0], 2, 5, '指界人姓名（签章）')
-    for row in data:
-        add_jzqz(doc.tables[0], row)
-    par_ = doc.add_paragraph()
-    par_.text = '说明：协议书与上述界址点不一致的，以集体土地所有权范围图及界址点、界线的补充说明为准。'
-    par_.runs[0].font.size = Pt(10)
+    doc = DocxTemplate(template_path / '界址签章表.docx')
+    doc.render({'jzxdata':data})
     return doc
 
 def generate_mjtj(zddmlist,zd_data):
@@ -286,31 +260,32 @@ def generate_mjtj(zddmlist,zd_data):
         setCelltext(table, len(table.rows) - 1, 2, sum)
     return doc
 
-def get_jxzx(jzd_jzsm,jzx_jzsm,row):
+def get_jxzx(jzd_jzsm,jzx_jzsm):
     if not jzx_jzsm.size:
         return ''
     result = f"{jzx_jzsm.QLRMC.values[0]}{jzx_jzsm.ZDDM.values[0]}\n"
     for _, row in jzx_jzsm.iterrows():
         if row['LZQLRMC']:
             JZXLB = jzd_jzsm[jzd_jzsm['JZD_NEW'] == row['QSDH']]['JZXLB'].values[0]
+            H_JZXLB = jzd_jzsm[jzd_jzsm['JZD_NEW'] == row['ZZDH']]['JZXLB'].values[0]
             QSDH = row['QSDH']
             LZQLRMC = row['LZQLRMC']
             ZJDH = f"过界址点{row['ZJDH']}" if row['ZJDH'] else ''
             ZZDH = row['ZZDH']
-            result += f"{QSDH}沿着{LZQLRMC}{JZXLB}{ZJDH}到{ZZDH}止，后为曲线。\n"
+            result += f"{QSDH}沿着{LZQLRMC}{JZXLB}{ZJDH}到{ZZDH}止，后为{H_JZXLB}。\n"
     return result
 
 def generate_jzsm(zddmlist, qlr,jzd_data,jzx_data):
     doc = DocxTemplate(template_path / '界址说明表.docx')
-    doc.styles['Normal'].font.name = u'方正仿宋_GBK'
-    doc.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), u'方正仿宋_GBK')
     dwsm = ''  # 点位说明
     jxzx = ''  # 界线走向
     for zddm in zddmlist:
+        log.info(f"{zddm}的界址信息")
         jzd_jzsm = jzd_data[jzd_data['ZDDM'] == zddm]
         jzx_jzsm = jzx_data[jzx_data['ZDDM'] == zddm]
-        dwsm += f"{qlr}{zddm}\n"
         dwsmdict = {}
+        if [v for v in jzd_jzsm.点位说明.values if v]:
+            dwsm += f"{qlr}{zddm}\n"
         for _, row in jzd_jzsm.iterrows():
             if row['点位说明']:
                 if row['点位说明'] not in dwsmdict:
@@ -319,8 +294,8 @@ def generate_jzsm(zddmlist, qlr,jzd_data,jzx_data):
                     dwsmdict[row['点位说明']] = f"{dwsmdict[row['点位说明']]}、{row['JZD_NEW']}"
         for key,value in dwsmdict.items():
             dwsm += f"{value}位于{key}交界处。\n"
-        for _, row in jzx_jzsm.iterrows():
-            jxzx += get_jxzx(jzd_jzsm,jzx_jzsm,row)
+
+        jxzx += get_jxzx(jzd_jzsm,jzx_jzsm)
     doc.render({'DWSM': dwsm, 'JXZX': jxzx})
     return doc
 
@@ -343,8 +318,9 @@ def generate_shb():
     return doc   
    
 def generate_qjdc(zd_data,jzd_data,jzx_data,savepath,jpg_zdct,control):
-    for key, row in get_zd_data(zd_data,jzx_data).items():
+    for key, row in get_zd_data(zd_data,jzx_data,jzd_data).items():
         docxlist = []
+        log.info(f"{row['QLRMC']}权属调查表！")
         jzjb_data = jzd_data[jzd_data.ZDDM.isin(zd_data[zd_data.QLRMC == key].ZDDM)]
         if control['head']:
             head = generate_head(row['ZDDM'])  
@@ -355,7 +331,7 @@ def generate_qjdc(zd_data,jzd_data,jzx_data,savepath,jpg_zdct,control):
         if control['jzjb']:
             jzjb = generate_jzjb(jzjb_data)
             docxlist.append(jzjb)
-        if control['jzsm']:
+        if control['qzb']:
             qzb = generate_jzqz(row['jzx_data'])
             docxlist.append(qzb)
         if control['zdct']:

@@ -41,10 +41,10 @@ class Api:
     self.jzx_df = pd.read_excel(path)
     return '界址线设置成功'
     
-  def generate_qjdc(self,control):
+  def generate_qjdc(self,control,savepath)->int:
     zd_data_ = gpd.read_file(self.gdb,layer='ZD')
     zd_data_ = zd_data_.fillna('')
     jzd_data_ = self.Ow.JZD.fillna('')
     jzd_data_.sort_values(by=['ZDDM','PX'], inplace=True)
-    self.handleGenerate_qjdc = generate_qjdc(zd_data_,jzd_data_,self.Ow.JZX,self.savepath,self.jpg_zdct,control)
+    self.handleGenerate_qjdc = generate_qjdc(zd_data_,jzd_data_,self.Ow.JZX,savepath,self.jpg_zdct,control)
     return self.Ow.qlrcount

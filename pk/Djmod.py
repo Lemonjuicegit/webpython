@@ -1,5 +1,4 @@
-import logging,time
-import traceback,sys
+import logging,time,zipfile,os,traceback,sys
 import pandas as pd
 from functools import wraps
 from docx.shared import Pt
@@ -8,6 +7,30 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx import Document
 from docxcompose.composer import Composer
 from pathlib import Path
+
+def fileDF(directory_list: list[str]):
+    df = pd.DataFrame(columns=['directory','filename','path','type','name'])
+    for directory in directory_list:
+        for root, _, files in os.walk(directory):
+            if '.gdb' in root:
+                continue
+            for file in files:
+                df.loc[df.shape[0]] = [root,file,Path(root)/file,file.split('.')[1],file.split('.')[0]]
+    return df
+
+def ipstr(ip):
+    return ''.join(ip.split('.'))
+
+# 解压文件
+def unzip(zip_path:str,unzip_path:str):
+    with zipfile.ZipFile(zip_path, 'r') as zip_file:
+        zip_file.extractall(unzip_path)
+
+def zip_list(filelist:list[str],zipname):
+    # 多个文件压缩
+    with zipfile.ZipFile(zipname, 'w') as zip_file:
+        for fpath in filelist:
+            zip_file.write(fpath)
 
 def groupby(df:pd.DataFrame,by:list[str],agg:str):
     '''agg:[
@@ -72,7 +95,6 @@ def compose_docx_file(files, output_file_path):
         n += 1
 
     composer.save(output_file_path)
-
 
 def compose_docx(docxlist, output_file_path:str):
     """

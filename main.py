@@ -64,19 +64,18 @@ def to_JZXexcel():
     api.Ow.to_JZXexcel(Path(api.savepath) / 'JZX.xlsx')
   return '界址线数据导出成功'
 
-
 def set_zdct(zdct):
   api.jpg_zdct = zdct
 
 @logErr(log)
 def generate_qjdc(control):
-  return api.generate_qjdc(control)
+  return api.generate_qjdc(control,api.savepath)
 
 @logErr(log)
 def handleGenerate_qjdc(end,control={}):
   res = next(api.handleGenerate_qjdc)
   if end == 1:
-    return api.generate_qjdc(control)
+    return api.generate_qjdc(control,api.savepath)
   return res
 
 def get_qlrcount():
@@ -168,7 +167,7 @@ def expose(window):
     window.evaluate_js(f'pywebview.api.{name}')
 
 # window = webview.create_window('所有权资料生成', 'http://localhost:5173/',resizable=False,width=1200,height=800)
-window = webview.create_window('所有权资料生成', './dist/index.html',resizable=False,width=1200,height=800)
+window = webview.create_window('所有权资料生成', './vue-vite/dist/index.html',resizable=False,width=1200,height=800)
 
 webview.start(expose,window) # type: ignore
 

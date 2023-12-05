@@ -71,6 +71,9 @@ def generate_jxrks(qlr,gdf_ZD,gdf_jzx):
     XLXZ = list(filter(None,sift_jzx.XLXZ.drop_duplicates().values))
     XLCM = list(filter(None,sift_jzx.XLCM.drop_duplicates().values))
     XLSM = list(filter(None,sift_jzx.XLSM.drop_duplicates().values))
+    XLXZ = [v for v in XLXZ if v != '']
+    XLCM = [v for v in XLCM if v != '']
+    XLSM = [v for v in XLSM if v not in ['','桐梁区','大足区','璧山区','江津区','荣昌区']]
     doc.render({
         'BXZ':sift_jzx['BXZ'].values[0],
         'BCM':sift_jzx['BCM'].values[0],

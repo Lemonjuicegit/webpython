@@ -19,3 +19,6 @@
 *.bat
 /所有权资料
 /pk/template
+/upload
+/send
+/static

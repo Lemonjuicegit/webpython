@@ -192,6 +192,7 @@ def get_data(df,fddata_=''):
   return datadf
 
 def Area_table_all(df,df_fda,savepath):
+  # @df_fda:飞地数据
   for key,value in get_data(df,df_fda).items():
     collectivelyZDClassifiedArea(value,Path(savepath) / f"{key}分类面积调查表.docx")
     yield f"{key}分类面积调查表"

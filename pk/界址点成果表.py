@@ -16,6 +16,8 @@ def add_border(cell):
 
 def head_zddm(ws,text):
     ws[f'A{ws.max_row+1}'] = text
+    ws[f'A{ws.max_row}'].alignment = Alignment(vertical='center')
+    ws.row_dimensions[ws.max_row].height = 26
     add_border(ws[f'A{ws.max_row}'])
     ws.merge_cells(start_row=ws.max_row,start_column=1,end_row=ws.max_row,end_column=ws.max_column)
     assignment_cell(ws[f'A{ws.max_row+1}'],'界址点号')
@@ -36,24 +38,33 @@ def generate_jzdcg(data,jzd_data, qlr,mj,save_path):
         return
     wb = Workbook()
     ws = wb.active
-    ws.column_dimensions['A'].width = 18.5
-    ws.column_dimensions['B'].width = 18.5
-    ws.column_dimensions['C'].width = 18.5
-    ws.column_dimensions['D'].width = 18.5
-    ws.column_dimensions['E'].width = 18.5
+    ws.column_dimensions['A'].width = 17.5
+    ws.column_dimensions['B'].width = 17.5
+    ws.column_dimensions['C'].width = 17.5
+    ws.column_dimensions['D'].width = 17.5
+    ws.column_dimensions['E'].width = 17.5
     assignment_cell(ws['A1'],'界址点坐标成果表')
     ws.merge_cells(start_row=1, start_column=1, end_row=2, end_column=5)
     ws['A4'] = f"权利人：{qlr}"
     ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=3)
     ws['D4'] = f"面积（㎡）:{mj}"
+    ws.row_dimensions[4].height = 26
+    ws['A4'].alignment = Alignment(vertical='center')
+    ws['D4'].alignment = Alignment(horizontal='center', vertical='center')
     ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=3)
     ws.merge_cells(start_row=4, start_column=4, end_row=4, end_column=5)
     for zddm in data:
-        head_zddm(ws,f"宗地代码：{zddm}")
         n = 0
         zd_jzd = jzd_data[jzd_data['ZDDM'] == zddm]
+        # a= ws.max_row//62
+        # b = (zd_jzd.shape[0] + 4 + ws.max_row)//62
+        # if (a != b) and ((zd_jzd.shape[0]+ 4 + ws.max_row) != (a+1)*62):
+        #     for _ in range((a+1)*62-ws.max_row):
+        #         ws[f'A{ws.max_row+1}'].value = ''
+        head_zddm(ws,f"宗地代码：{zddm}") 
         for _,row in zd_jzd.iterrows():
             assignment_cell(ws[f'A{ws.max_row+1}'],row['JZD_NEW'])
+            ws.row_dimensions[ws.max_row].height = 5
             assignment_cell(ws[f'C{ws.max_row}'],row.geometry.x)
             assignment_cell(ws[f'D{ws.max_row}'],row.geometry.y)
             row_index = ws.max_row
@@ -69,6 +80,7 @@ def generate_jzdcg(data,jzd_data, qlr,mj,save_path):
             add_border(ws[f'A{row_index-2}:E{row_index}'])
             n += 1
         assignment_cell(ws[f'A{ws.max_row+1}'],'J1')
+        ws.row_dimensions[ws.max_row].height = 5
         assignment_cell(ws[f'C{ws.max_row}'],zd_jzd[zd_jzd.JZD_NEW == 'J1'].geometry.x.values[0])
         assignment_cell(ws[f'D{ws.max_row}'],zd_jzd[zd_jzd.JZD_NEW == 'J1'].geometry.y.values[0])
         row_index = ws.max_row
@@ -88,12 +100,6 @@ def generate_jzdcg(data,jzd_data, qlr,mj,save_path):
     
     wb.save(save_path)
     
-# save_path = Path(config.savepath)
-# JZD_gdb = config.gdb_path
-
-# jzd_data = gpd.read_file(JZD_gdb,layer='JZD')
-                        
-# zd_data = gpd.read_file(JZD_gdb,layer='ZD')
 
 def get_jzd_data(jzd_data,zd_data):
     jzd_data.sort_values(by='ZDDM', inplace=True)

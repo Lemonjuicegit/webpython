@@ -7,19 +7,19 @@ log = Djmod.Djlog()
 class Ownership:
     def __init__(self,gdbpath):
         self.ZD = gpd.read_file(gdbpath,layer='ZD').fillna('')
-        # self.ZD = self.ZD[self.ZD.ZDDM == '500118002020JA10031']
+        # self.ZD = self.ZD[self.ZD.QLRMC == '双石镇丁家岩村楠竹林村民小组']
         self.JZD = gpd.read_file(gdbpath,layer='JZD').fillna('')
-        self.JZD.sort_values(by=['ZDDM','PX'],inplace=True)
         self.JZD['X'] = np.round(self.JZD.geometry.x*10).astype('int64')
         self.JZD['Y'] = np.round(self.JZD.geometry.y*10).astype('int64')
-        # self.JZD = self.JZD[self.JZD.ZDDM == '500118002020JA10031']
+        # self.JZD = self.JZD[self.JZD.QLRMC == '双石镇丁家岩村楠竹林村民小组']
         # self.get_coordinates(self.ZD)
         self.JZD_All = gpd.read_file(gdbpath,layer='ZD_All')
+        # self.JZD_All = self.JZD_All[self.JZD_All.ZDDM == 'JA3711']
         self.zdcount = self.ZD.shape[0]
         self.qlrcount = self.ZD.QLRMC.drop_duplicates().shape[0]
         self.JZX = pd.DataFrame(columns=('ZDDM','QLRMC','LZQLRMC','QSDH','ZJDH','ZZDH','INDEX','BXZ','BCM','BSM','XLXZ','XLCM','XLSM'))
         self.JZD,self.jzd_boundary = self.get_jzd_boundary()
-    
+        self.JZD.sort_values(by=['ZDDM','PX'],inplace=True)
     def adjacent_jzdzddm(self,jzd):
         # 相邻界址点
         x = jzd.X
@@ -79,7 +79,8 @@ class Ownership:
             temp = [zddm,*(np.round(x_y*10)).astype('int64'),value,V]
             return temp
         
-        coor_df = pd.DataFrame()
+        # coor_df = pd.DataFrame(columns=['ZDDM','X','Y','INDEX','JZDH'])
+
         for index,value in enumerate(data['coordinates'][0]):
             if not index:
                 coor_df = pd.DataFrame([add_index(np.array(x),index,V) for V,x in enumerate(value[:len(value)-1])],columns=['ZDDM','X','Y','INDEX','JZDH'])
@@ -94,10 +95,11 @@ class Ownership:
         return self.ZD.ZDDM.drop_duplicates(ignore_index=True)
     
     def get_jzd_boundary(self):
-        # 这是一个蒋界址点与边界信息连接的方法
+        # 这是一个将界址点与边界信息连接的方法
         # @jzd_gdf_:界址点数据
         # @zd_gdf_:宗地数据
         # 界址点和宗地数据必须有ZDDM字段
+        _coordinates = pd.DataFrame()
         for index,row in self.JZD_All.iterrows():
             if index == 0:
                 _coordinates = self.get_coordinates(row)
@@ -111,8 +113,9 @@ class Ownership:
         for index,row in jzd_gdf_.iterrows():
             QLRMC = self.ZD[self.ZD.ZDDM.isin(jzd_gdf_.ZDDM)].QLRMC.values[0]
             ZDDM = jzd_gdf_.ZDDM.values[0]
+            b_jzd,h_xljzd,q_xljzd = self.adjacent_jzdzddm(row)
             if index == 0:
-                b_jzd,h_xljzd,q_xljzd = self.adjacent_jzdzddm(row)
+
                 self.JZX.loc[self.JZX.shape[0],'ZDDM'] = ZDDM
                 self.JZX.loc[self.JZX.shape[0]-1,'QLRMC'] = QLRMC
                 if XLQLRZDDM := list(set(b_jzd.ZDDM) & set(q_xljzd.ZDDM)):
@@ -123,7 +126,6 @@ class Ownership:
                 continue
             if index == jzd_gdf_.shape[0]-1:
                 # 终点界址点
-                b_jzd,h_xljzd,q_xljzd = self.adjacent_jzdzddm(row)
                 if list(set(h_xljzd.ZDDM) & set(q_xljzd.ZDDM)) or (b_jzd.shape[0] == 0):
 
                     self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'].append(row.JZD_NEW)
@@ -136,10 +138,19 @@ class Ownership:
                     self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'] = []
                     self.JZX.loc[self.JZX.shape[0]-2,'ZZDH'] = row.JZD_NEW
                     self.JZX.loc[self.JZX.shape[0]-1,'INDEX'] = jzd_gdf_.at[index,'INDEX']
-                
+                if self.JZX.loc[self.JZX.shape[0]-1,'QSDH'] == jzd_gdf_.at[0,'JZD_NEW']:
+                    self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'].remove(jzd_gdf_.tail(1).JZD_NEW.values[0])
+                    self.JZX.loc[self.JZX.shape[0]-1,'ZZDH'] = jzd_gdf_.tail(1).JZD_NEW.values[0]
+                    self.JZX.loc[self.JZX.shape[0],'ZDDM'] = ZDDM
+                    self.JZX.loc[self.JZX.shape[0]-1,'QLRMC'] = QLRMC
+                    if XLQLRZDDM := list(set(b_jzd.ZDDM) & set(q_xljzd.ZDDM)):
+                        self.JZX.loc[self.JZX.shape[0]-1,'LZQLRMC'] = self.JZD_All[self.JZD_All.ZDDM == XLQLRZDDM[0]].QLRMC.values[0]
+                    self.JZX.loc[self.JZX.shape[0]-1,'QSDH'] = jzd_gdf_.tail(1).JZD_NEW.values[0]
+                    self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'] = []
+                    self.JZX.loc[self.JZX.shape[0]-1,'INDEX'] = jzd_gdf_.at[index,'INDEX']
                 self.JZX.loc[self.JZX.shape[0]-1,'ZZDH'] = jzd_gdf_.at[0,'JZD_NEW']
                 continue
-            b_jzd,h_xljzd,q_xljzd = self.adjacent_jzdzddm(row)
+            
             if list(set(h_xljzd.ZDDM) & set(q_xljzd.ZDDM))  or (b_jzd.shape[0] == 0):
                 self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'].append(row.JZD_NEW)
             else:
@@ -206,9 +217,9 @@ class Ownership:
             elif len(row.ZJDH) == 1:
                 jzxcopy.loc[index,'ZJDH'] = row.ZJDH[0]
             elif len(row.ZJDH) == 2:
-                jzxcopy.loc[index,'ZJDH'] = '、'.join(row.ZJDH)
+                jzxcopy.loc[index,'ZJDH'] = '、'.join(set(row.ZJDH))
             else:
-                jzxcopy.loc[index,'ZJDH'] = f"{row.ZJDH[0]}....{row.ZJDH[-1]}"
+                jzxcopy.loc[index,'ZJDH'] = f"{row.ZJDH[0]}...{row.ZJDH[-1]}"
         return jzxcopy.fillna('')
     
                 
