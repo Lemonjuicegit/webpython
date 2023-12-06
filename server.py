@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 from pathlib import Path
 from Api import Api
-from pk.Djmod import Djlog, logErr
+from pk.Djmod import Djlog
 from pk.土地权属界线认可书 import generate_jxrks_all
 from pk.界址点成果表 import generate_jzdcg_all
 from pk.所有权面积分类 import Area_table_all
@@ -17,20 +17,21 @@ from pk import filrDF, zip_list, unzip
 app = FastAPI()
 useApi: dict[str, Api] = {}
 log = Djlog()
-# app.mount("/static", StaticFiles(directory="static", html=True),name="static")
+app.mount("/index", StaticFiles(directory="static", html=True), name="index")
 
-uploadPath = Path("upload")
-sendPath = Path("send")
+uploadPath = Path(r"E:\exploitation\webpython\upload")
+sendPath = Path(r"E:\exploitation\webpython\send")
 
+# rewrite = '/api'
+rewrite = ''
 
 class Args(BaseModel):
     gdb: str = ""
-    dowfile: str = ""  # 下载文件
     end: int = 0
     jzxpath: str = ""
     zdct: str = ""
     control: dict = {}
-    Areadatapath: str = ""
+    Areadatapath: str = ""  # 所有权面积分类excel数据路径
     df_fda: str = ""  # 面积统计表飞地excel数据路径
 
 
@@ -41,58 +42,58 @@ class useFile:
 
 
 def addUseFile(ip, directory: Path, filename: str):
-    useFile.value[useFile.value.shape[0]] = [
-        ip,
-        directory,
+    useFile.value.loc[useFile.value.shape[0]] = [
+        str(directory),
         filename,
-        directory / filename,
+        str(directory / filename),
         filename.split(".")[1],
         filename.split(".")[0],
+        ip,
     ]
 
-
-@app.post("/uploadfile")
+@app.post(f"{rewrite}/uploadfile")
 async def create_upload_file(file: UploadFile, req: Request):
     ip = req.client.host
     log.info(f"create_upload_file:{ip}")
     file_content = await file.read()
-    ip = ip
     filename = file.filename
     gdbzip = uploadPath / ip / filename
-
+    addUseFile(ip, uploadPath / ip, filename)
     with open(gdbzip, "wb") as buffer:
         buffer.write(file_content)
-        addUseFile(ip, uploadPath / ip, filename)
         unzip(gdbzip, uploadPath / ip)
         addUseFile(ip, uploadPath / ip, f"{filename.split('.')[0]}.gdb")
-    return filename
+        return filename
 
 
-@app.post("/download")
-async def create_download_file(args: Args, req: Request):
+@app.post(f"{rewrite}/download")
+async def create_download_file(filename, req: Request):
     ip = req.client.host
     log.info(f"create_download_file:{ip}")
     # 查找要下载的文件
     path = useFile.value[
-        (useFile.value.ip == ip) & (useFile.value.name == args.dowfile)
+        (useFile.value.ip == ip)
+        & ((useFile.value.name == filename) | (useFile.value.filename == filename))
     ]
     if path.shape[0]:
-        return FileResponse(path.path.values[0], filename=path.filename)
-    return 0
+        return FileResponse(path.path.values[0], filename=path.filename.values[0])
+    else:
+        return 0
 
 
-@app.post("/add_use")
+@app.post(f"{rewrite}/add_use")
 async def add_use(req: Request):
+    '''
+    '''
     ip = req.client.host
-    log.info(f"add_use:{ip}")
     useApi[ip] = Api()
-    (uploadPath / ip).mkdir(exist_ok=True, parents=True)
+    (uploadPath /ip).mkdir(exist_ok=True, parents=True)
     (sendPath / ip).mkdir(exist_ok=True, parents=True)
     log.info(f"{ip}连接")
     return 1
 
 
-@app.get("/disconnect")
+@app.get(f"{rewrite}/disconnect")
 async def use_disconnect(req: Request = None):
     ip = req.client.host
     if (uploadPath / ip).exists():
@@ -103,10 +104,9 @@ async def use_disconnect(req: Request = None):
     log.info(f"{ip}断开")
 
 
-@app.post("/createOwnership")
+@app.post(f"{rewrite}/createOwnership")
 async def createOwnership(args: Args, req: Request = None):
     ip = req.client.host
-    print(args.gdb)
     if (uploadPath / ip / f"{args.gdb}.gdb").exists():
         res = useApi[ip].createOwnership(uploadPath / ip / f"{args.gdb}.gdb")
         useApi[ip].gdb = uploadPath / ip / f"{args.gdb}.gdb"
@@ -116,13 +116,13 @@ async def createOwnership(args: Args, req: Request = None):
         return "数据库加载失败"
 
 
-@app.post("/get_zdcount")
+@app.post(f"{rewrite}/get_zdcount")
 async def get_zdcount(req: Request = None):
     ip = req.client.host
     return useApi[ip].Ow.zdcount
 
 
-@app.post("/createLine")
+@app.post(f"{rewrite}/createLine")
 async def createLine(args: Args, req: Request = None):
     ip = req.client.host
     res = next(useApi[ip].jzx)
@@ -138,39 +138,38 @@ async def createLine(args: Args, req: Request = None):
     return res
 
 
-@app.post("/set_jzx_excel")
+@app.post(f"{rewrite}/set_jzx_excel")
 async def set_jzx_excel(args: Args, req: Request = None):
     ip = req.client.host
     return useApi[ip].set_jzx_excel(args.jzxpath)
 
 
-@app.post("/to_JZXexcel")
+@app.post(f"{rewrite}/to_JZXexcel")
 async def to_JZXexcel(req: Request = None):
     ip = req.client.host
     if not useApi[ip].Ow:
         return "没有设置数据库"
     if not useApi[ip].Ow.JZX.shape[0]:
         return "没有界址线数据"
-    if not useApi[ip].savepath:
-        useApi[ip].Ow.to_JZXexcel("JZX.xlsx")
     else:
-        useApi[ip].Ow.to_JZXexcel(Path(useApi[ip].savepath) / "JZX.xlsx")
+        useApi[ip].Ow.to_JZXexcel(sendPath / ip/ "JZX.xlsx")
+        addUseFile(ip, sendPath / ip, "JZX.xlsx")
     return "界址线数据导出成功"
 
 
-@app.post("/set_zdct")
+@app.post(f"{rewrite}/set_zdct")
 async def set_zdct(args: Args, req: Request = None):
     ip = req.client.host
     useApi[ip].jpg_zdct = args.zdct
 
 
-@app.post("/generate_qjdc")
+@app.post(f"{rewrite}/generate_qjdc")
 async def generate_qjdc(args: Args, req: Request = None):
     ip = req.client.host
     return useApi[ip].generate_qjdc(args.control, sendPath / ip)
 
 
-@app.post("/handleGenerate_qjdc")
+@app.post(f"{rewrite}/handleGenerate_qjdc")
 async def handleGenerate_qjdc(args: Args, req: Request = None):
     ip = req.client.host
     res = next(useApi[ip].handleGenerate_qjdc)
@@ -184,7 +183,7 @@ async def handleGenerate_qjdc(args: Args, req: Request = None):
     return res
 
 
-@app.post("/get_qlrcount")
+@app.post(f"{rewrite}/get_qlrcount")
 async def get_qlrcount(req: Request = None):
     ip = req.client.host
     if not useApi[ip].Ow:
@@ -192,7 +191,7 @@ async def get_qlrcount(req: Request = None):
     return useApi[ip].Ow.qlrcount
 
 
-@app.post("/generate_rks")
+@app.post(f"{rewrite}/generate_rks")
 async def generate_rks(args: Args, req: Request = None):
     ip = req.client.host
     jzx_df = pd.read_excel(args.jzxpath)
@@ -203,7 +202,7 @@ async def generate_rks(args: Args, req: Request = None):
     return "界址线数据读取成功"
 
 
-@app.post("/jxrks_all")
+@app.post(f"{rewrite}/jxrks_all")
 async def jxrks_all(args: Args, req: Request = None):
     ip = req.client.host
     if not useApi[ip].Ow.qlrcount:
@@ -221,7 +220,7 @@ async def jxrks_all(args: Args, req: Request = None):
     return res
 
 
-@app.post("/generate_jzdcg")
+@app.post(f"{rewrite}/generate_jzdcg")
 async def generate_jzdcg(req: Request = None):
     ip = req.client.host
     # 创建界址点成果表生成器
@@ -230,22 +229,25 @@ async def generate_jzdcg(req: Request = None):
     return "界址点数据加载完成"
 
 
-@app.post("/jzdcg_all")
+@app.post(f"{rewrite}/jzdcg_all")
 async def jzdcg_all(args: Args, req: Request = None):
     # 导出所有界址点成果表
     ip = req.client.host
     if not useApi[ip].Ow.qlrcount:
         return "没有权利人信息"
     res = next(useApi[ip].jzdcg)
+    useFile.zipFile.append(sendPath / ip / f"{res}.xlsx")
+    addUseFile(ip, sendPath / ip, f"{res}.xlsx")
     if args.end == 1:
         jzd = gpd.read_file(useApi[ip].gdb, layer="JZD")
+        zip_list(useFile.zipFile, sendPath / ip / "界址点成果表.zip")
+        addUseFile(ip, sendPath / ip, "界址点成果表.zip")
+        useFile.zipFile = []
         useApi[ip].rks = generate_jzdcg_all(jzd, useApi[ip].Ow.ZD, sendPath / ip)
     return res
 
 
-@app.post(
-    "/generate_Area",
-)
+@app.post(f"{rewrite}/generate_Area")
 async def generate_Area(args: Args, req: Request = None):
     ip = req.client.host
     if not (sendPath / ip).exists():
@@ -261,7 +263,7 @@ async def generate_Area(args: Args, req: Request = None):
     return df.shape[0]
 
 
-@app.post("/Area_table")
+@app.post(f"{rewrite}/Area_table")
 async def Area_table(args: Args, req: Request = None):
     ip = req.client.host
     res = next(useApi[ip].Area_table_all)
@@ -277,16 +279,17 @@ async def Area_table(args: Args, req: Request = None):
     return res
 
 
-@app.post("/to_jzxshp")
+@app.post(f"{rewrite}/to_jzxshp")
 async def to_jzxshp(req: Request = None):
     ip = req.client.host
-    useApi[ip].Ow.to_jzxshp(sendPath / ip / "jzx.shp")
+    useApi[ip].Ow.to_jzxshp(sendPath / ip / "JZXshp.shp")
+    addUseFile(ip, sendPath / ip, "JZXshp.shp")
     return "导出界址线矢量成功"
 
 
 if __name__ == "__main__":
 
-    @app.post("/test")
+    @app.post(f"{rewrite}/test")
     def test(req: Request):
         ip = req.client.host
         print(ip)
