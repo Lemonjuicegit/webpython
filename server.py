@@ -1,7 +1,6 @@
-import uvicorn, json, os, shutil
+import uvicorn, json, shutil
 import pandas as pd
 import geopandas as gpd
-from typing import Annotated, Union
 from fastapi import FastAPI, Request, UploadFile
 from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
@@ -12,7 +11,7 @@ from pk.Djmod import Djlog
 from pk.土地权属界线认可书 import generate_jxrks_all
 from pk.界址点成果表 import generate_jzdcg_all
 from pk.所有权面积分类 import Area_table_all
-from pk import filrDF, zip_list, unzip
+from pk import Myerr, zip_list, unzip,Stacking
 
 app = FastAPI()
 useApi: dict[str, Api] = {}
@@ -33,26 +32,33 @@ class Args(BaseModel):
     control: dict = {}
     Areadatapath: str = ""  # 所有权面积分类excel数据路径
     df_fda: str = ""  # 面积统计表飞地excel数据路径
-
+    stacking_shp:str = "" # 需要堆叠融合的矢量数据
+    stacking_field:str = "" # 堆叠优先级字段
+    isorderly:int = 0 # 堆叠优先级字段是否有序
+    stack_layer: str = '' # 堆叠融合图层
 
 class useFile:
-    value = filrDF(["upload", "send"])  # coulmns: directory,filename,path,type,name
-    value["ip"] = ""
+    value = pd.DataFrame(columns=["ip","directory", "filename", "path", "type", "name"])  # coulmns: directory,filename,path,type,name
     zipFile = []
 
 
 def addUseFile(ip, directory: Path, filename: str):
     useFile.value.loc[useFile.value.shape[0]] = [
+        ip,
         str(directory),
         filename,
         str(directory / filename),
         filename.split(".")[1],
         filename.split(".")[0],
-        ip,
     ]
+    
+@app.exception_handler(Exception)
+async def http_exception_handler(req: Request, exc):
+    return {"detail": exc.detail}
 
-@app.post(f"{rewrite}/uploadfile")
-async def create_upload_file(file: UploadFile, req: Request):
+@app.post(f"{rewrite}/uploadGdbfile")
+async def create_upload_gdbfile(file: UploadFile, req: Request):
+    assert req.client is not None
     ip = req.client.host
     log.info(f"create_upload_file:{ip}")
     file_content = await file.read()
@@ -61,9 +67,29 @@ async def create_upload_file(file: UploadFile, req: Request):
     addUseFile(ip, uploadPath / ip, filename)
     with open(gdbzip, "wb") as buffer:
         buffer.write(file_content)
-        unzip(gdbzip, uploadPath / ip)
+    unzip(gdbzip, uploadPath / ip)
+    addUseFile(ip, uploadPath / ip, f"{filename.split('.')[0]}.gdb")
+    return filename
+    
+@app.post(f"{rewrite}/upload")
+async def create_upload_file(file: UploadFile,filetype:str='', req: Request=None):
+    assert req.client is not None
+    ip = req.client.host
+    log.info(f"create_upload_file:{ip}")
+    file_content = await file.read()
+    filename = file.filename
+    extractpath = uploadPath / ip / filename
+    addUseFile(ip, uploadPath / ip, filename)
+    with open(extractpath, "wb") as buffer:
+        buffer.write(file_content)
+    if filetype == 'gdb':
+        unzip(extractpath, uploadPath / ip,'gdb')
         addUseFile(ip, uploadPath / ip, f"{filename.split('.')[0]}.gdb")
         return filename
+    filelist = unzip(extractpath, uploadPath / ip)
+    for f in filelist:
+        addUseFile(ip, uploadPath / ip, f)
+    return filename
 
 
 @app.post(f"{rewrite}/download")
@@ -75,6 +101,7 @@ async def create_download_file(filename, req: Request):
         (useFile.value.ip == ip)
         & ((useFile.value.name == filename) | (useFile.value.filename == filename))
     ]
+    
     if path.shape[0]:
         return FileResponse(path.path.values[0], filename=path.filename.values[0])
     else:
@@ -97,7 +124,7 @@ async def add_use(req: Request):
 async def use_disconnect(req: Request = None):
     ip = req.client.host
     if (uploadPath / ip).exists():
-        shutil.rmtree(uploadPath / ip)
+        shutil.rmtree(uploadPath /ip)
     if (sendPath / ip).exists():
         shutil.rmtree(sendPath / ip)
     useFile.value = useFile.value[useFile.value.ip != ip]
@@ -286,13 +313,30 @@ async def to_jzxshp(req: Request = None):
     addUseFile(ip, sendPath / ip, "JZXshp.shp")
     return "导出界址线矢量成功"
 
+@app.post(f"{rewrite}/stacking")
+async def stacking(args: Args,req: Request = None):
+    ip = req.client.host
+    shp = uploadPath / ip / args.stacking_shp
+    try:
+        if args.stack_layer:
+            st = Stacking(shp,args.stacking_field,args.isorderly,args.stack_layer)
+        else:
+            st = Stacking(shp,args.stacking_field,args.isorderly)
+    except Myerr as e:
+        return str(e)
+    st.all_(sendPath / ip / '堆叠融合.shp')
+    shpfile = list(Path(sendPath / ip).glob("堆叠融合.*"))
+    for i in shpfile:
+        addUseFile(ip, sendPath / ip, i.name)
+    zip_list(shpfile,sendPath / ip / '堆叠融合.zip')
+    addUseFile(ip, sendPath / ip,'堆叠融合.zip')
+    return '堆叠融合处理完成'
+
 
 if __name__ == "__main__":
-
     @app.post(f"{rewrite}/test")
     def test(req: Request):
         ip = req.client.host
         print(ip)
         return "test"
-
     uvicorn.run(app, host="192.168.2.194", port=8000)

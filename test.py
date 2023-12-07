@@ -1,30 +1,22 @@
-import unittest
-import zipfile
-import os
+# 继承 Exception
+class MyError(Exception):
+     def __init__(self, msg):
+         self.msg = msg
+    
+     def __str__(self):
+         return self.msg
 
+# 求和的方法
+def add(a,b):
+    # 如果a和b中有负数，就向调用处抛出异常
+    if a < 0 or b < 0:
+        raise MyError('自定义的异常')
+             
+    r = a + b
+    return r
 
-class TestZipList(unittest.TestCase):
-    def test_zip_list(self):
-        filelist = [
-            r"E:\exploitation\webpython\upload\main.py",
-            r"E:\exploitation\webpython\upload\server.py",
-            r"E:\exploitation\webpython\upload\sign.py",
-        ]
-        zipname = r"E:\exploitation\webpython\upload\test.zip"
-        with zipfile.ZipFile(zipname, "w") as zip_file:
-            for fpath in filelist:
-                zip_file.write(fpath, arcname=fpath.split(os.sep)[-1])
-
-        # Assert that the zip file is created
-        self.assertTrue(os.path.exists(zipname))
-
-        # Assert that the zip file is not empty
-        zip_file = zipfile.ZipFile(zipname, "r")
-        self.assertGreater(len(zip_file.infolist()), 0)
-
-        # Clean up the created zip file
-        # os.remove(zipname)
-
-
-if __name__ == "__main__":
-    unittest.main()
+# 调用 求和的方法
+try:
+    print(add(-123,456))
+except MyError as e:
+    print(str(e))

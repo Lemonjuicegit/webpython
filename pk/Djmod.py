@@ -8,7 +8,6 @@ from docx import Document
 from docxcompose.composer import Composer
 from pathlib import Path
 
-
 def fileDF(directory_list: list[str]):
     df = pd.DataFrame(columns=["directory", "filename", "path", "type", "name"])
     for directory in directory_list:
@@ -25,18 +24,19 @@ def fileDF(directory_list: list[str]):
                 ]
     return df
 
-
 def ipstr(ip):
     return "".join(ip.split("."))
 
-
-# 解压文件
-def unzip(zip_path: str, unzip_path: str):
+def unzip(zip_path: str, unzip_path: str,filetype:str=''):
+    '''解压文件'''
     with zipfile.ZipFile(zip_path, "r") as zip_file:
         zip_file.extractall(unzip_path)
+        if filetype == 'gdb':
+            return zip_path
+        return [n.filename for n in zip_file.filelist]
 
 
-def zip_list(filelist: list[str], zipname):
+def zip_list(filelist: list[str|Path], zipname):
     # 多个文件压缩
     with zipfile.ZipFile(zipname, "w") as zip_file:
         for fpath in filelist:
@@ -192,3 +192,9 @@ def setCelltext(table_, row_, cell_, text_, fontname_="", font_size_=Pt(10.5)):
     table_.rows[row_].cells[cell_].paragraphs[0].runs[0].font.size = font_size_
     if fontname_:
         table_.rows[row_].cells[cell_].paragraphs[0].runs[0].font.name = fontname_
+
+class Myerr(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+    def __str__(self):
+        return self.msg

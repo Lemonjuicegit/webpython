@@ -4,6 +4,7 @@ from pk import Sign
 from pk.areaClassification import exportArea
 from pk.Ownership import Ownership
 from pk.不动产权籍调查表 import generate_qjdc
+from pk import Stacking
 class Api:
   def __init__(self) -> None:
     self.result = None
