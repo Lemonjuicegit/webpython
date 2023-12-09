@@ -1,22 +1,16 @@
-# 继承 Exception
-class MyError(Exception):
-     def __init__(self, msg):
-         self.msg = msg
-    
-     def __str__(self):
-         return self.msg
-
-# 求和的方法
-def add(a,b):
-    # 如果a和b中有负数，就向调用处抛出异常
-    if a < 0 or b < 0:
-        raise MyError('自定义的异常')
-             
-    r = a + b
-    return r
-
-# 调用 求和的方法
-try:
-    print(add(-123,456))
-except MyError as e:
-    print(str(e))
+import fiona  
+  
+# 打开gdb数据库  
+gdb_path = "path/to/your_gdb.gdb"  
+driver = "gdal"  
+gdb_database = fiona.open(gdb_path, "r", driver=driver)  
+  
+# 获取所有数据集名称  
+dataset_names = [dataset.split("=")[1] for dataset in gdb_database.meta['DATASET']]  
+  
+# 打印数据集名称  
+for name in dataset_names:  
+    print(name)  
+  
+# 关闭gdb数据库  
+gdb_database.close()

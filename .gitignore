@@ -1,14 +1,12 @@
-/__pycache__
+__pycache__
 *.log
 /node_modules
 .vscode
-/Djmod/__pycache__
 *.zip
 *.xlsx
 *.log
 /build
 /vue-vite1
-/pk/__pycache__
 
 /vue-vite
 *.spec
