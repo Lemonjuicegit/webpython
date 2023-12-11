@@ -7,6 +7,9 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx import Document
 from docxcompose.composer import Composer
 from pathlib import Path
+from decimal import Decimal
+def dround(num,ndigits):
+    return round(Decimal(str(num)),ndigits)
 
 def fileDF(directory_list: list[str]):
     df = pd.DataFrame(columns=["directory", "filename", "path", "type", "name"])

@@ -19,5 +19,6 @@ __pycache__
 /pk/template
 /upload
 /send
-/static
 test
+log
+static
