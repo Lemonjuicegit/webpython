@@ -67,7 +67,7 @@ class Djlog:
             filename=f"./log/{time.strftime('%Y%m%d', time.gmtime(time.time()))}.log",
             format="%(asctime)s %(filename)s:%(lineno)s %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
-            encoding="gb18030"
+            encoding="utf-8"
         )
         self.debug = logging.debug
         self.info = logging.info

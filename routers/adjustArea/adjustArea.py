@@ -6,7 +6,6 @@ from ..Djmod import Djlog
 
 log = Djlog()
 
-
 class quadraticEquation:
     def __init__(self, x1, y1, x2, y2) -> None:
         self.len: float = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
@@ -32,57 +31,45 @@ class AdjustArea:
         self.stat = pd.read_excel(tab)
         self.gdb: gpd.GeoDataFrame = gpd.read_file(gdb)
         self.gdb['INDEX'] = self.gdb.index
-        # self.gdb = self.gdb[self.gdb.QLRMC == '统景镇河坝村第18村民小组']
+        self.keycount = self.stat.shape[0]
         self.boun_d = pd.DataFrame()
         self.coefficient = coefficient
         self.KEY = KEY
         self.key_value_list = set()
         self.precision = precision
 
-    def modify(self, row):
+    def modify(self, KEY):
         try:
-            area = self.stat[self.stat[self.KEY] == row[self.KEY]].MJ.values[0]
+            area = self.stat[self.stat[self.KEY] == KEY].MJ.values[0]
         except:
-            log.err(f"未找到{row[self.KEY]}的修改面积")
-            return
-        pol = row.geometry
-        # 添加self.key_value_list值防止重复修改面
-        if row[self.KEY] in self.key_value_list:
-            return 
-        else:
-            self.key_value_list.add(row[self.KEY])
-            
-        try:
-            xy_zip = zip(pol.exterior.xy[0], pol.exterior.xy[1])
-        except NotImplementedError:
-            xy_zip = zip(pol.exterior.xy[0], pol.exterior.xy[1])
+            log.err(f"未找到{KEY}的修改面积")
+            return "未找到{KEY}的修改面积"
+        pol_list = self.gdb[self.gdb[self.KEY] == KEY].geometry.values
+        area_list = [ar for ar in pol_list.area]
         index_list = []
         
-        centriodx = pol.centroid.x
-        centriody = pol.centroid.y
-        for index, xy in enumerate(xy_zip):
-            count = self.count_xy(xy[0], xy[1])
-            if count == 1:
-                position = xy[0] - centriodx
-                qe = quadraticEquation(centriodx, centriody, xy[0], xy[1])
-                if position > 0:
-                    x = xy[0] + 1
-                    y_ = qe.y(x)
-                    if not pol.intersects(Point(x,y_)):
-                        index_list.append({"index": index, "x": xy[0], "y": xy[1]})
-                elif position < 0:
-                    x = xy[0] + 1
-                    y_ = qe.y(x)
-                    if pol.intersects(Point(x,y_)):
-                        index_list.append({"index": index, "x": xy[0], "y": xy[1]})
-        self.move( row[self.KEY], row.geometry.centroid, index_list, self.coefficient, area)
+        while not index_list:
+            pol = pol_list[area_list.index(max(area_list))]
+            area_list.remove(max(area_list))
+            xy_zip = zip(pol.exterior.xy[0], pol.exterior.xy[1])
+            for index, xy in enumerate(xy_zip):
+                count = self.count_xy(int(xy[0]), int(xy[1]))
+                if count == 1:
+                    index_list.append({"index": index, "x": xy[0], "y": xy[1]})
+        
+        self.move( KEY, index_list, self.coefficient, area,pol)
+        return f"已修改{KEY}面积"
 
 
     def modify_all(self, save):
-        self.gdb.apply(self.modify, axis=1)
+        KEY = self.stat[self.KEY].drop_duplicates().values
+        for k in KEY:
+            log.info(k)
+            res = self.modify(k)
+            yield res
         self.gdb.to_file(save,encoding="gb18030")
 
-    def move(self, KEY, centriod, n, lenth, area):
+    def move(self, KEY, n, lenth, area,pol):
         """
         @centriod: 质心坐标
         @n: 能够移动点的列表
@@ -91,41 +78,35 @@ class AdjustArea:
         @len: 要移动的距离
         @area: 移动后要对比的面积
         """
-        pol_list = self.gdb.geometry[self.gdb[self.KEY] == KEY].values
-        INDEX = self.gdb[self.gdb[self.KEY] == KEY].geometry.area.idxmax()
+        pol_list = self.gdb[self.gdb[self.KEY] == KEY].geometry.values
+        INDEX = self.gdb[self.gdb[self.KEY] == KEY].geometry[self.gdb.geometry.area == pol.area].index[0]
         area_list = [ar for ar in pol_list.area]
-        pol = pol_list[area_list.index(max(area_list))]
-        area_list.remove(max(area_list))
+        # pol = pol_list[area_list.index(max(area_list))]
+        area_list.remove(pol.area)
         area_all = sum(area_list) # 其他面的总面积
         area_ = round(pol.area+area_all, self.precision) - area
         one = 0  # 记录首次进入循环
-        log.info(KEY)
+        l_mix = lenth/10 # 最小调整距离
         while area_:
             if one:
                 # 移动
-                if one<abs(area_):
-                    lenth = lenth-0.01
-            one = 1
+                if (lenth != l_mix) and (area_<1):
+                    lenth = lenth-l_mix
+            one = 1    
             # 记录差额面积是正数还是负数
             symbol = -1 if area_ < 0 else 1
-            x,y_ = 0,0
             for t,i in enumerate(n):
-                qe = quadraticEquation(centriod.x, centriod.y, i["x"], i["y"])
-                position = i["x"] - centriod.x
-                if position < 0:
-                    x = i["x"] + lenth*symbol
- 
-                elif position > 0:
-                    x = i["x"] - lenth*symbol
-                y_ = qe.y(x)
-
-                # if area_ > -102:
-                #     pass
-                n[t]['x'] = x
-                n[t]['y'] = y_
-                pol = self.upPolygon(pol, i["index"], x, y_)
+                if pol.intersects(Point(i['x'] + lenth, i['y'] + lenth)):
+                    pol = self.upPolygon(pol, i["index"], i['x'] + lenth*symbol, i['y'] + lenth*symbol)
+                    n[t]['x'] = i['x'] + lenth*symbol
+                    n[t]['y'] = i['y'] + lenth*symbol
+                else:
+                    pol = self.upPolygon(pol, i["index"], i['x'] - lenth*symbol, i['y'] - lenth*symbol)
+                    n[t]['x'] = i['x'] - lenth*symbol
+                    n[t]['y'] = i['y'] - lenth*symbol
+                if abs(area_) < 0.02:
+                    pass
                 area_ = round(pol.area+area_all, self.precision) - area
-                log.info(area_)
                 if symbol == -1:
                     if not (area_ < 0):
                         break
@@ -155,7 +136,7 @@ class AdjustArea:
         data = mapping(one_gdf.geometry)
         coor_df = pd.DataFrame(columns=("X", "Y", "JZDH"))
         for index, value in enumerate(data["coordinates"][0]):
-            coor_df.loc[coor_df.shape[0]] = [value[0], value[1], index]
+            coor_df.loc[coor_df.shape[0]] = [int(value[0]), int(value[1]), index]
         return coor_df[:-1]
 
     def get_boundary(self):
@@ -170,4 +151,4 @@ class AdjustArea:
                 )
 
     def count_xy(self, x, y):
-        return self.boun_d[(self.boun_d["X"] == x) | (self.boun_d["Y"] == y)].shape[0]
+        return self.boun_d[(self.boun_d["X"] == x) & (self.boun_d["Y"] == y)].shape[0]

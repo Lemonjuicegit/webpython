@@ -1,2 +1,2 @@
 from .adjustArea import *
-from .adjustArea2 import *
+from .app import router
