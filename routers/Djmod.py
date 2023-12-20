@@ -30,10 +30,14 @@ def ipstr(ip):
 def unzip(zip_path: str, unzip_path: str,filetype:str=''):
     '''解压文件'''
     with zipfile.ZipFile(zip_path, "r") as zip_file:
-        zip_file.extractall(unzip_path)
+        namelist = []
+        for info in zip_file.infolist():
+            info.filename = info.filename.encode('cp437').decode('gbk')
+            namelist.append(info.filename)
+            zip_file.extract(info,unzip_path)
         if filetype == 'gdb':
             return zip_path
-        return [n.filename for n in zip_file.filelist]
+        return namelist
 
 
 def zip_list(filelist: list[str|Path], zipname):

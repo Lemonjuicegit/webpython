@@ -18,19 +18,20 @@ from routers import store
 app = FastAPI()
 useApi: dict[str, Api] = {}
 log = Djlog()
-# app.mount("/index", StaticFiles(directory="static", html=True), name="index")
+app.mount("/index", StaticFiles(directory="static", html=True), name="index")
 
+rewrite = '/api'
+# rewrite = ''
 app.include_router(
     adjustArea.router,
-    prefix="/adjustarea",
+    prefix=f"{rewrite}/adjustarea",
     tags=["adjustarea"],
 )
 
 # store.uploadPath = Path(r"E:\exploitation\webpython\upload")
 # store.sendPath = Path(r"E:\exploitation\webpython\send")
 
-# rewrite = '/api'
-rewrite = ''
+
 
 class Args(BaseModel):
     gdb: str = ""
@@ -71,11 +72,11 @@ async def create_upload_gdbfile(file: UploadFile, req: Request):
     file_content = await file.read()
     filename = file.filename
     gdbzip = store.uploadPath / ip / filename
-    store.addUseFile(ip, filename)
+    store.addUseFile(ip,store.uploadPath, filename)
     with open(gdbzip, "wb") as buffer:
         buffer.write(file_content)
     unzip(gdbzip, store.uploadPath / ip)
-    store.addUseFile(ip, f"{filename.split('.')[0]}.gdb")
+    store.addUseFile(ip,store.uploadPath, f"{filename.split('.')[0]}.gdb")
     return filename
     
 @app.post(f"{rewrite}/upload")
@@ -86,17 +87,17 @@ async def create_upload_file(file:UploadFile=File(),filetype:str='', req: Reques
     file_content = await file.read()
     filename = file.filename
     extractpath = store.uploadPath / ip / filename
-    store.addUseFile(ip, filename)
+    store.addUseFile(ip,store.uploadPath, filename)
     with open(extractpath, "wb") as buffer:
         buffer.write(file_content)
     if filetype == 'gdb':
         unzip(extractpath, store.uploadPath / ip,'gdb')
-        store.addUseFile(ip, f"{filename.split('.')[0]}.gdb")
+        store.addUseFile(ip,store.uploadPath, f"{filename.split('.')[0]}.gdb")
         return filename
     elif filetype == 'shp':
         filelist = unzip(extractpath, store.uploadPath / ip)
         for f in filelist:
-            store.addUseFile(ip, f)
+            store.addUseFile(ip,store.uploadPath, f)
     return filename
 
 
@@ -190,7 +191,7 @@ async def to_JZXexcel(req: Request = None):
         return "没有界址线数据"
     else:
         useApi[ip].Ow.to_JZXexcel(store.sendPath / ip/ "JZX.xlsx")
-        store.addUseFile(ip, store.sendPath / ip, "JZX.xlsx")
+        store.addUseFile(ip,store.sendPath, "JZX.xlsx")
     return "界址线数据导出成功"
 
 
@@ -211,10 +212,10 @@ async def handleGenerate_qjdc(args: Args, req: Request = None):
     ip = req.client.host
     res = next(useApi[ip].handleGenerate_qjdc)
     store.zipFile.append(store.sendPath / ip / f"{res}.docx")
-    store.addUseFile(ip, store.sendPath / ip, f"{res}.docx")
+    store.addUseFile(ip, store.sendPath, f"{res}.docx")
     if args.end == 1:
         zip_list(store.zipFile, store.sendPath / ip / "权籍调查表.zip")
-        store.addUseFile(ip, store.sendPath / ip, "权籍调查表.zip")
+        store.addUseFile(ip, store.sendPath, "权籍调查表.zip")
         store.zipFile = []
         return useApi[ip].generate_qjdc(args.control, store.sendPath / ip)
     return res
@@ -275,11 +276,11 @@ async def jzdcg_all(args: Args, req: Request = None):
         return "没有权利人信息"
     res = next(useApi[ip].jzdcg)
     store.zipFile.append(store.sendPath / ip / f"{res}.xlsx")
-    store.addUseFile(ip, store.sendPath / ip, f"{res}.xlsx")
+    store.addUseFile(ip, store.sendPath, f"{res}.xlsx")
     if args.end == 1:
         jzd = gpd.read_file(useApi[ip].gdb, layer="JZD")
         zip_list(store.zipFile, store.sendPath / ip / "界址点成果表.zip")
-        store.addUseFile(ip, store.sendPath / ip, "界址点成果表.zip")
+        store.addUseFile(ip, store.sendPath, "界址点成果表.zip")
         store.zipFile = []
         useApi[ip].rks = generate_jzdcg_all(jzd, useApi[ip].Ow.ZD, store.sendPath / ip)
     return res
@@ -321,7 +322,7 @@ async def Area_table(args: Args, req: Request = None):
 async def to_jzxshp(req: Request = None):
     ip = req.client.host
     useApi[ip].Ow.to_jzxshp(store.sendPath / ip / "JZXshp.shp")
-    store.addUseFile(ip, store.sendPath / ip, "JZXshp.shp")
+    store.addUseFile(ip, store.sendPath, "JZXshp.shp")
     return "导出界址线矢量成功"
 
 @app.post(f"{rewrite}/stacking")
@@ -338,9 +339,9 @@ async def stacking(args: Args,req: Request = None):
     st.all_(store.sendPath / ip / '堆叠融合.shp')
     shpfile = list(Path(store.sendPath / ip).glob("堆叠融合.*"))
     for i in shpfile:
-        store.addUseFile(ip, store.sendPath / ip, i.name)
+        store.addUseFile(ip, store.sendPath, i.name)
     zip_list(shpfile,store.sendPath / ip / '堆叠融合.zip')
-    store.addUseFile(ip, store.sendPath / ip,'堆叠融合.zip')
+    store.addUseFile(ip, store.sendPath,'堆叠融合.zip')
     return '堆叠融合处理完成'
 
 

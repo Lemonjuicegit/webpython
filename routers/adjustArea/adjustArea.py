@@ -32,7 +32,8 @@ class AdjustArea:
         self.gdb: gpd.GeoDataFrame = gpd.read_file(gdb)
         self.gdb['INDEX'] = self.gdb.index
         self.keycount = self.stat.shape[0]
-        self.boun_d = pd.DataFrame()
+        self.boun_d = pd.DataFrame(columns=("X", "Y", "JZDH"))
+        self.get_boundary()
         self.coefficient = coefficient
         self.KEY = KEY
         self.key_value_list = set()
@@ -58,17 +59,18 @@ class AdjustArea:
                     index_list.append({"index": index, "x": xy[0], "y": xy[1]})
         
         self.move( KEY, index_list, self.coefficient, area,pol)
+
         return f"已修改{KEY}面积"
 
 
-    def modify_all(self, save):
+    def modify_all(self):
         KEY = self.stat[self.KEY].drop_duplicates().values
         for k in KEY:
             log.info(k)
             res = self.modify(k)
             yield res
+    def to_shp(self,save):
         self.gdb.to_file(save,encoding="gb18030")
-
     def move(self, KEY, n, lenth, area,pol):
         """
         @centriod: 质心坐标
@@ -87,6 +89,7 @@ class AdjustArea:
         area_ = round(pol.area+area_all, self.precision) - area
         one = 0  # 记录首次进入循环
         l_mix = lenth/10 # 最小调整距离
+        forcount = 0  # 记录循环次数
         while area_:
             if one:
                 # 移动
@@ -96,6 +99,7 @@ class AdjustArea:
             # 记录差额面积是正数还是负数
             symbol = -1 if area_ < 0 else 1
             for t,i in enumerate(n):
+                forcount += 1
                 if pol.intersects(Point(i['x'] + lenth, i['y'] + lenth)):
                     pol = self.upPolygon(pol, i["index"], i['x'] + lenth*symbol, i['y'] + lenth*symbol)
                     n[t]['x'] = i['x'] + lenth*symbol
@@ -115,7 +119,9 @@ class AdjustArea:
                         break
                 elif not area_:
                     break
-                
+            if forcount > 10000:
+                log.err(f"{KEY}超出最大循环次数")
+                break
         self.gdb.loc[INDEX,'geometry'] = pol
         return 0
 
@@ -141,7 +147,6 @@ class AdjustArea:
 
     def get_boundary(self):
         # 所有宗地边界坐标
-
         for index, row in self.gdb.iterrows():
             if index == 0:
                 self.boun_d = self.get_coordinates(row)

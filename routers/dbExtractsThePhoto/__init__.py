@@ -1,0 +1,1 @@
+from .dbExtractsThePhoto import dbExtractsThePhoto
