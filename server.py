@@ -13,6 +13,7 @@ from pk.界址点成果表 import generate_jzdcg_all
 from pk.所有权面积分类 import Area_table_all
 from pk import Myerr, zip_list, unzip,Stacking
 from routers import adjustArea
+from routers import tableformat
 from routers import store
 
 app = FastAPI()
@@ -22,16 +23,11 @@ app.mount("/index", StaticFiles(directory="static", html=True), name="index")
 
 rewrite = '/api'
 # rewrite = ''
-app.include_router(
-    adjustArea.router,
-    prefix=f"{rewrite}/adjustarea",
-    tags=["adjustarea"],
-)
+app.include_router(adjustArea.router,prefix=f"{rewrite}/adjustarea",tags=["adjustarea"],)
+app.include_router(adjustArea.router,prefix=f"{rewrite}/adjustarea",tags=["adjustarea"],)
 
 # store.uploadPath = Path(r"E:\exploitation\webpython\upload")
 # store.sendPath = Path(r"E:\exploitation\webpython\send")
-
-
 
 class Args(BaseModel):
     gdb: str = ""

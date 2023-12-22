@@ -20,7 +20,6 @@ router = APIRouter()
 app = FastAPI()
 useApi: dict[str, Api] = {}
 log = Djlog()
-app.mount("/index", StaticFiles(directory="static", html=True), name="index")
 
 uploadPath = Path(r"E:\exploitation\webpython\upload")
 sendPath = Path(r"E:\exploitation\webpython\send")

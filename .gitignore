@@ -22,3 +22,11 @@ __pycache__
 test
 log
 static
+*.cpg
+*.dbf
+*.prj
+*.sbx
+*.sbn
+*.shp
+*.shx
+*.shp.xml
