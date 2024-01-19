@@ -10,6 +10,7 @@ from . import Djmod
 from pathlib import Path
 from . import config
 
+
 template_path = Path(config.config.template_path)
 log = Djmod.Djlog()
 
@@ -60,29 +61,25 @@ def get_zd_data(zd_data, jzx_data, jzd_gdf):
     # 宗地数据格式化
     for _, row in zd_data.iterrows():
         if row["QLRMC"] not in tidyup:
-            n = 1
             tidyup[row["QLRMC"]] = {
                 **row,
-                "NUM": n,
+                "NUM": 1,
                 "jzx_data": [],
                 "ZDDM_list": {row["ZDDM"]},
             }
         else:
-            n += 1
-            tidyup[row["QLRMC"]][
-                "ZDDM"
-            ] = f"{tidyup[row['QLRMC']]['ZDDM']}、{row['ZDDM']}"
+            tidyup[row["QLRMC"]]["ZDDM"] = f"{tidyup[row['QLRMC']]['ZDDM']}、{row['ZDDM']}"
             tidyup[row["QLRMC"]]["ZDMJ"] = tidyup[row["QLRMC"]]["ZDMJ"] + row["ZDMJ"]
             tidyup[row["QLRMC"]][
                 "BDCDYH"
             ] = f"{tidyup[row['QLRMC']]['BDCDYH']}、{row['BDCDYH']}"
-            if not row["TFH"]:
+            if row["TFH"]:
                 temp_tfh = set(row["TFH"].split("、"))
                 tidyup_tfh = set(tidyup[row["QLRMC"]]["TFH"].split("、"))
                 over = tidyup_tfh | temp_tfh
                 tidyup[row["QLRMC"]]["TFH"] = "、".join(over)
-            tidyup[row["QLRMC"]]["NUM"] = n
             tidyup[row["QLRMC"]]["ZDDM_list"].add(row["ZDDM"])
+            tidyup[row["QLRMC"]]["NUM"] = tidyup[row["QLRMC"]]["NUM"] + 1
     for _, row in jzx_data.iterrows():
         try:
             xlzl = jzd_gdf[jzd_gdf["ZDDM"] == row["ZDDM"]]
@@ -93,9 +90,7 @@ def get_zd_data(zd_data, jzx_data, jzd_gdf):
                     "ZJDH": row["ZJDH"],
                     "ZZDH": row["ZZDH"],
                     "LZQLRMC": row["LZQLRMC"] if row["LZQLRMC"] else "",
-                    "qz1": f"详见{row['LZQLRMC']}界线认可书"
-                    if row["LZQLRMC"].find("村民小组") != -1
-                    else "",
+                    "qz1": f"详见{row['LZQLRMC']}界线认可书" if row["LZQLRMC"][-4:] in ['村民小组','农民集体'] else "",
                     "qz2": f"详见{row['QLRMC']}界线认可书" if row["QLRMC"] else "",
                     "dkm": xlzl.loc[xlzl.index[0], "SM"]
                     if xlzl.loc[xlzl.index[0], "SM"]
@@ -207,7 +202,7 @@ def generate_jzjb(jzddf):
                     num += 2
                 elif i == 4:
                     setCelltext(doc.tables[0], num + 3, 0, ". . .")
-                    setCelltext(doc.tables[0], num + 3, 5, "√")
+                    setCelltext(doc.tables[0], num + 3, 6, "√")
                     setCelltext(doc.tables[0], num + 3, 9, "√")
                     num += 2
                 elif i > 4:
@@ -348,6 +343,7 @@ def generate_shb():
 
 
 def generate_qjdc(zd_data, jzd_data, jzx_data, savepath, jpg_zdct, control):
+    
     for key, row in get_zd_data(zd_data, jzx_data, jzd_data).items():
         docxlist = []
         log.info(f"{row['QLRMC']}权籍调查表")

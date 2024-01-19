@@ -52,7 +52,7 @@ def stamp_paralist(sift_jzx):
             if row['LZQLRMC'] not in result:
                 result[row['LZQLRMC']] = {
                     'jzdh_para':f"{row['QSDH']}至{row['ZZDH']}({row['ZDDM']})",
-                    'is':True if re.search('村民小组',str(row['LZQLRMC'])) else False,
+                    'is':True if row["LZQLRMC"][-4:] in ['村民小组','农民集体'] else False,
                     'LZQLRMC':row['LZQLRMC'],
                     'XLXZ':row['XLXZ'],
                     'XLCM':row['XLCM'],
@@ -89,21 +89,22 @@ def generate_jxrks(qlr,gdf_ZD,gdf_jzx):
     })
     return doc
          
-def get_jxzx(jzd_jzsm,jzx_jzsm,row):
+def get_jxzx(jzd_jzsm,jzx_jzsm):
     if not jzx_jzsm.size:
-        return ''
+        return ""
     result = f"{jzx_jzsm.QLRMC.values[0]}{jzx_jzsm.ZDDM.values[0]}\n"
     for _, row in jzx_jzsm.iterrows():
-        if row['LZQLRMC']:
-            JZXLB = jzd_jzsm[jzd_jzsm.JZD_NEW == row['QSDH']].JZXLB.values[0]
-            QSDH = row['QSDH']
-            LZQLRMC = row['LZQLRMC']
-            ZJDH = f"过界址点{row['ZJDH']}" if row['ZJDH'] else ''
-            ZZDH = row['ZZDH']
-            result += f"{QSDH}沿着{LZQLRMC}{JZXLB}{ZJDH}到{ZZDH}止，后为曲线。\n"
+        if row["LZQLRMC"]:
+            JZXLB = jzd_jzsm[jzd_jzsm["JZD_NEW"] == row["QSDH"]]["JZXLB"].values[0]
+            H_JZXLB = jzd_jzsm[jzd_jzsm["JZD_NEW"] == row["ZZDH"]]["JZXLB"].values[0]
+            QSDH = row["QSDH"]
+            LZQLRMC = row["LZQLRMC"]
+            ZJDH = f"过界址点{row['ZJDH']}" if row["ZJDH"] else ""
+            ZZDH = row["ZZDH"]
+            result += f"{QSDH}沿着{LZQLRMC}{JZXLB}{ZJDH}到{ZZDH}止，后为{H_JZXLB}。\n"
     return result
 
-def generate_jzsmjb(gdf_ZD,gdf_jzd,gdf_jzx,qlr):
+def generate_jzsmjb(gdf_ZD,gdf_jzd,qlr):
     doc = Document(template_path / '界址说明标示表.docx') # type: ignore
     data_ = gdf_jzd.copy()
     doc.styles['Normal'].font.name = u'方正仿宋_GBK'
@@ -121,19 +122,18 @@ def generate_jzsmjb(gdf_ZD,gdf_jzd,gdf_jzx,qlr):
             count += 12
         else:
             count += c * 2
-
-    if count < 34:
-        count = 34
+    if count < 30:
+        count = 30
     for i in range(count):
         doc.tables[0].add_row()
         doc.tables[0].rows[i + 4].height = Cm(0.5)
-
     for row_index in range(0, count, 2):
-        if row_index <= count - 5:
+        if row_index <= count - 4:
             cell(row_index + 5, 0).merge(cell(row_index + 6, 0))
-        for colu_index in range(1,9):
-            cell(row_index + 4,
-                 colu_index).merge(cell(row_index + 5, colu_index))
+        for colu_index in range(8):
+            cell(row_index + 4, colu_index + 1).merge(
+                cell(row_index + 5, colu_index + 1)
+            )
     num = 0
     JZXLB_dict = {'沟渠':1,'道路':2,'田埂':3,'地埂':4,'山脊':5}
     JZXWZ_dict = {'内':6,'中':7,'外':8}
@@ -177,8 +177,8 @@ def generate_jzsmjb(gdf_ZD,gdf_jzd,gdf_jzx,qlr):
 
                     num += 2
                 elif i == 4:
-                    setCelltext(doc.tables[0], num + 4, 0, '.....')
-                    setCelltext(doc.tables[0], num + 4, 3, '√')
+                    setCelltext(doc.tables[0], num + 4, 0, '. . .')
+                    setCelltext(doc.tables[0], num + 4, 4, '√')
                     setCelltext(doc.tables[0], num + 4, 7, '√')
                     num += 2
                 elif i > 4:
@@ -199,33 +199,56 @@ def generate_jzsmjb(gdf_ZD,gdf_jzd,gdf_jzx,qlr):
                     num += 2
             setCelltext(doc.tables[0], num + 4, 0, jdz_boundary.at[0,'JZD_NEW'])
             num += 2
-        
-        dwsm = ''  # 点位说明
-        jxzx = ''  # 界线走向
-        jzd_jzsm = gdf_jzd[gdf_jzd['ZDDM'] == zddm]
-        jzx_jzsm = gdf_jzx[gdf_jzx['ZDDM'] == zddm]
-        dwsm += f"{qlr}{zddm}\n"
+    # for zddm in ZDDMLIST:
+    #     dwsm = ''  # 点位说明
+    #     jxzx = ''  # 界线走向
+    #     jzd_jzsm = gdf_jzd[gdf_jzd['ZDDM'] == zddm]
+    #     jzx_jzsm = gdf_jzx[gdf_jzx['ZDDM'] == zddm]
+    #     dwsm += f"{qlr}{zddm}\n"
+    #     dwsmdict = {}
+    #     for _, row in jzd_jzsm.iterrows():
+    #         if row['点位说明']:
+    #             if row['点位说明'] not in dwsmdict:
+    #                 dwsmdict[row['点位说明']] = row['JZD_NEW']
+    #             else:
+    #                 dwsmdict[row['点位说明']] = f"{dwsmdict[row['点位说明']]}、{row['JZD_NEW']}"
+    #     for key,value in dwsmdict.items():
+    #         dwsm += f"{value}位于{key}交界处。\n"
+    #     print(zddm)
+    #     jxzx += get_jxzx(jzd_jzsm,jzx_jzsm)
+    # setCelltext(doc.tables[1], 0, 1, dwsm)
+    # setCelltext(doc.tables[1], 1, 1, jxzx)
+    return doc
+
+def generate_jzsm(zddmlist, qlr, jzd_data, jzx_data):
+    doc = DocxTemplate(template_path / "界址说明表认可书.docx")
+    dwsm = ""  # 点位说明
+    jxzx = ""  # 界线走向
+    for zddm in zddmlist:
+        log.info(f"{zddm}的界址信息")
+        jzd_jzsm = jzd_data[jzd_data["ZDDM"] == zddm]
+        jzx_jzsm = jzx_data[jzx_data["ZDDM"] == zddm]
         dwsmdict = {}
+        if [v for v in jzd_jzsm.点位说明.values if v]:
+            dwsm += f"{qlr}{zddm}\n"
         for _, row in jzd_jzsm.iterrows():
-            if row['点位说明']:
-                if row['点位说明'] not in dwsmdict:
-                    dwsmdict[row['点位说明']] = row['JZD_NEW']
+            if row["点位说明"]:
+                if row["点位说明"] not in dwsmdict:
+                    dwsmdict[row["点位说明"]] = row["JZD_NEW"]
                 else:
-                    dwsmdict[row['点位说明']] = f"{dwsmdict[row['点位说明']]}、{row['JZD_NEW']}"
-        for key,value in dwsmdict.items():
+                    dwsmdict[row["点位说明"]] = f"{dwsmdict[row['点位说明']]}、{row['JZD_NEW']}"
+        for key, value in dwsmdict.items():
             dwsm += f"{value}位于{key}交界处。\n"
-        for _, row in jzx_jzsm.iterrows():
-            jxzx += get_jxzx(jzd_jzsm,jzx_jzsm,row)
-        setCelltext(doc.tables[1], 0, 1, dwsm)
-        setCelltext(doc.tables[1], 1, 1, jxzx)
+        jxzx += get_jxzx(jzd_jzsm, jzx_jzsm)
+    doc.render({"DWSM": dwsm, "JXZX": jxzx})
     return doc
 
 def generate_jxrks_all(gdf_ZD,gdf_jzd,jzx_df,savepath,control):
     qlrs = gdf_ZD['QLRMC'].drop_duplicates().values
-    
     for qlr in qlrs:
         doclist = []
-        jzjb_data = gdf_jzd[gdf_jzd.ZDDM.isin(gdf_ZD[gdf_ZD.QLRMC == qlr].ZDDM)]
+        ZDDM_list = gdf_ZD[gdf_ZD.QLRMC == qlr].ZDDM.drop_duplicates().values
+        jzjb_data = gdf_jzd[gdf_jzd.ZDDM.isin(ZDDM_list)]
         if control['jxrks']:
             jxrks = generate_jxrks(qlr,gdf_ZD,jzx_df)
             if not jxrks:
@@ -234,10 +257,12 @@ def generate_jxrks_all(gdf_ZD,gdf_jzd,jzx_df,savepath,control):
                 continue
             doclist.append(jxrks)
         if control['jzsmjb']:
-            jzsmjb = generate_jzsmjb(gdf_ZD,jzjb_data,jzx_df,qlr)
+            jzsmjb = generate_jzsmjb(gdf_ZD,jzjb_data,qlr)
             doclist.append(jzsmjb)
+            jzsm = generate_jzsm(ZDDM_list, qlr, jzjb_data, jzx_df)
+            doclist.append(jzsm)
         Djmod.compose_docx(doclist, Path(savepath)/ f"{qlr}界线认可书.docx") # type: ignore
-        yield f"{qlr}已出认可书"
+        yield f"{qlr}界线认可书"
 
 if __name__ == '__main__':
     pass

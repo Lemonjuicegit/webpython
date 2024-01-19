@@ -1,7 +1,7 @@
 import uvicorn, json, shutil
 import pandas as pd
 import geopandas as gpd
-from fastapi import FastAPI, Request, UploadFile,File
+from fastapi import FastAPI, Request, UploadFile,File,HTTPException
 from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
@@ -24,7 +24,7 @@ app.mount("/index", StaticFiles(directory="static", html=True), name="index")
 rewrite = '/api'
 # rewrite = ''
 app.include_router(adjustArea.router,prefix=f"{rewrite}/adjustarea",tags=["adjustarea"],)
-app.include_router(adjustArea.router,prefix=f"{rewrite}/adjustarea",tags=["adjustarea"],)
+app.include_router(tableformat.router,prefix=f"{rewrite}/tableformat",tags=["tableformat"])
 
 # store.uploadPath = Path(r"E:\exploitation\webpython\upload")
 # store.sendPath = Path(r"E:\exploitation\webpython\send")
@@ -58,7 +58,8 @@ def addUseFile(ip, directory: Path, filename: str):
     
 @app.exception_handler(Exception)
 async def http_exception_handler(req: Request, exc):
-    return {"detail": exc.detail}
+    log.err(str(exc))
+    return 'err'
 
 @app.post(f"{rewrite}/uploadGdbfile")
 async def create_upload_gdbfile(file: UploadFile, req: Request):
@@ -118,6 +119,7 @@ async def add_use(req: Request):
     '''
     ip = req.client.host
     useApi[ip] = Api()
+    useApi[ip].savepath = f"E:\\exploitation\\webpython\\send\\{ip}"
     store.use[ip] = {}
     (store.uploadPath /ip).mkdir(exist_ok=True, parents=True)
     (store.sendPath / ip).mkdir(exist_ok=True, parents=True)
@@ -228,11 +230,11 @@ async def get_qlrcount(req: Request = None):
 @app.post(f"{rewrite}/generate_rks")
 async def generate_rks(args: Args, req: Request = None):
     ip = req.client.host
-    jzxpath = store.useFile[store.useFile.filename == args.jzxpath].directory.values[0]
+    jzxpath = store.useFile[store.useFile.filename == args.jzxpath].path.values[0]
     jzx_df = pd.read_excel(jzxpath)
     jzx_df = jzx_df.fillna("")
     useApi[ip].rks = generate_jxrks_all(
-        useApi[ip].Ow.ZD, useApi[ip].Ow.JZD, jzx_df, useApi[ip].savepath, args.control
+        useApi[ip].Ow.ZD, useApi[ip].Ow.JZD, jzx_df, store.sendPath / ip, args.control
     )
     return "界址线数据读取成功"
 
@@ -243,10 +245,13 @@ async def jxrks_all(args: Args, req: Request = None):
     if not useApi[ip].Ow.qlrcount:
         return "没有权利人信息"
     res = next(useApi[ip].rks)
+    store.zipFile.append(store.sendPath / ip / f"{res}.docx")
+    store.addUseFile(ip, store.sendPath, f"{res}.docx")
     if args.end == 1:
-        jzxpath = store.useFile[
-            (store.useFile.id == ip) & (store.useFile.filename == args.jzxpath)
-        ].path.values[0]
+        zip_list(store.zipFile, store.sendPath / ip / "认可书.zip")
+        store.addUseFile(ip, store.sendPath, "认可书.zip")
+        store.zipFile = []
+        jzxpath = store.useFile[ (store.useFile.ip == ip) & (store.useFile.filename == args.jzxpath)].path.values[0]
         jzx_df = pd.read_excel(jzxpath)
         jzx_df = jzx_df.fillna("")
         useApi[ip].rks = generate_jxrks_all(
@@ -347,4 +352,4 @@ if __name__ == "__main__":
         ip = req.client.host
         print(ip)
         return "test"
-    uvicorn.run(app, host="192.168.2.194", port=23333)
+    uvicorn.run(app, host="192.168.2.51", port=8000)

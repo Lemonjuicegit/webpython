@@ -1,6 +1,6 @@
 from pathlib import Path
 import pandas as pd
-
+from .Djmod import Djlog
 
 
 class Store:
@@ -10,6 +10,7 @@ class Store:
         self.zipFile = []
         self.uploadPath = Path(r"E:\exploitation\webpython\upload")
         self.sendPath = Path(r"E:\exploitation\webpython\send")
+        self.log = Djlog()
     
     def addUseFile(self,ip ,directory,filename: str):
         self.useFile.loc[self.useFile.shape[0]] = [

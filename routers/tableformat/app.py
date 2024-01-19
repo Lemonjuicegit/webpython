@@ -1,10 +1,11 @@
 
 from fastapi import APIRouter,Request
-from xmcb import xmcb
+from pydantic import BaseModel
+from .xmcb import xmcb
 from .. import store
 router = APIRouter()
 
-class Args:
+class Args(BaseModel):
     filename:str= ''
     
 @router.post('/xmcb')
