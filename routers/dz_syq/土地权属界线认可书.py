@@ -199,6 +199,25 @@ def generate_jzsmjb(gdf_ZD,gdf_jzd,qlr):
                     num += 2
             setCelltext(doc.tables[0], num + 4, 0, jdz_boundary.at[0,'JZD_NEW'])
             num += 2
+    # for zddm in ZDDMLIST:
+    #     dwsm = ''  # 点位说明
+    #     jxzx = ''  # 界线走向
+    #     jzd_jzsm = gdf_jzd[gdf_jzd['ZDDM'] == zddm]
+    #     jzx_jzsm = gdf_jzx[gdf_jzx['ZDDM'] == zddm]
+    #     dwsm += f"{qlr}{zddm}\n"
+    #     dwsmdict = {}
+    #     for _, row in jzd_jzsm.iterrows():
+    #         if row['点位说明']:
+    #             if row['点位说明'] not in dwsmdict:
+    #                 dwsmdict[row['点位说明']] = row['JZD_NEW']
+    #             else:
+    #                 dwsmdict[row['点位说明']] = f"{dwsmdict[row['点位说明']]}、{row['JZD_NEW']}"
+    #     for key,value in dwsmdict.items():
+    #         dwsm += f"{value}位于{key}交界处。\n"
+    #     print(zddm)
+    #     jxzx += get_jxzx(jzd_jzsm,jzx_jzsm)
+    # setCelltext(doc.tables[1], 0, 1, dwsm)
+    # setCelltext(doc.tables[1], 1, 1, jxzx)
     return doc
 
 def generate_jzsm(zddmlist, qlr, jzd_data, jzx_data):
@@ -227,7 +246,6 @@ def generate_jzsm(zddmlist, qlr, jzd_data, jzx_data):
 def generate_jxrks_all(gdf_ZD,gdf_jzd,jzx_df,savepath,control):
     qlrs = gdf_ZD['QLRMC'].drop_duplicates().values
     for qlr in qlrs:
-        log.info(f"生成{qlr}界线认可书")
         doclist = []
         ZDDM_list = gdf_ZD[gdf_ZD.QLRMC == qlr].ZDDM.drop_duplicates().values
         jzjb_data = gdf_jzd[gdf_jzd.ZDDM.isin(ZDDM_list)]
