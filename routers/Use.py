@@ -4,3 +4,9 @@ use_ip = {
     '192.168.2.124':'陈龙',
     '192.168.2.47':'袁珊'
 }
+
+class Use:
+    def __init__(self) -> None:
+        self.useApi = {}
+        
+use = Use()

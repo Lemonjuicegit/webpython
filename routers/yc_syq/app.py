@@ -3,15 +3,14 @@ import pandas as pd
 import geopandas as gpd
 from fastapi import  Request,APIRouter
 from pydantic import BaseModel
+from Api import Api
 from .Djmod import Djlog
 from .import generate_jxrks_all
 from . import generate_jzdcg_all
 from . import Area_table_all
 from . import  zip_list
 from .. import zipDir
-from . import generate_qjdc_
 from . import qzb_
-from . import Ownership
 from .. import store
 from .. import use
 router = APIRouter()
@@ -20,20 +19,21 @@ log = Djlog()
 class Args(BaseModel):
     gdb: str = ""
     end: int = 0
-    qzb_data:str = "" # 签字表数据表
-    choose:dict={}  # 选择要出的签字表
     jzxpath: str = ""
     zdct: str = ""
     control: dict = {}
     Areadatapath: str = ""  # 所有权面积分类excel数据路径
     df_fda: str = ""  # 面积统计表飞地excel数据路径
-    precision:int|float = 10 # 界址点匹配精度
+    stacking_shp:str = "" # 需要堆叠融合的矢量数据
+    stacking_field:str = "" # 堆叠优先级字段
+    isorderly:int = 0 # 堆叠优先级字段是否有序
+    stack_layer: str = '' # 堆叠融合图层
 
 @router.post("/createOwnership")
 async def createOwnership(args: Args, req: Request = None):
     ip = req.client.host
     if (store.uploadPath / ip / f"{args.gdb}.gdb").exists():
-        res = use.useApi[ip].createOwnership(store.uploadPath / ip / f"{args.gdb}.gdb",args.precision,Ownership)
+        res = use.useApi[ip].createOwnership(store.uploadPath / ip / f"{args.gdb}.gdb")
         use.useApi[ip].gdb = store.uploadPath / ip / f"{args.gdb}.gdb"
         use.useApi[ip].jzx = use.useApi[ip].Ow.add_jzx_all()
         return res
@@ -89,23 +89,20 @@ async def set_zdct(args: Args, req: Request = None):
 @router.post("/generate_qjdc")
 async def generate_qjdc(args: Args, req: Request = None):
     ip = req.client.host
-    return use.useApi[ip].generate_qjdc(args.control, store.sendPath / ip,generate_qjdc_)
+    return use.useApi[ip].generate_qjdc(args.control, store.sendPath / ip)
 
 
 @router.post("/handleGenerate_qjdc")
 async def handleGenerate_qjdc(args: Args, req: Request = None):
     ip = req.client.host
-    try:
-        res = next(use.useApi[ip].handleGenerate_qjdc)
-    except:
-        pass
+    res = next(use.useApi[ip].handleGenerate_qjdc)
     use.useApi[ip].zipFile.append(store.sendPath / ip / f"{res}.docx")
     store.addUseFile(ip, store.sendPath, f"{res}.docx")
     if args.end == 1:
         zip_list(use.useApi[ip].zipFile, store.sendPath / ip / "权籍调查表.zip")
         store.addUseFile(ip, store.sendPath, "权籍调查表.zip")
         use.useApi[ip].zipFile = []
-        return 1
+        return use.useApi[ip].generate_qjdc(args.control, store.sendPath / ip)
     return res
 
 
@@ -141,7 +138,7 @@ async def jxrks_all(args: Args, req: Request = None):
         zip_list(use.useApi[ip].zipFile, store.sendPath / ip / "认可书.zip")
         store.addUseFile(ip, store.sendPath, "认可书.zip")
         use.useApi[ip].zipFile = []
-        jzxpath = store.useFile[store.useFile.filename == args.jzxpath].path.values[0]
+        jzxpath = store.useFile[ (store.useFile.ip == ip) & (store.useFile.filename == args.jzxpath)].path.values[0]
         jzx_df = pd.read_excel(jzxpath)
         jzx_df = jzx_df.fillna("")
         use.useApi[ip].rks = generate_jxrks_all(
@@ -219,12 +216,7 @@ async def to_jzxshp(req: Request = None):
 @router.post("/qzb_one")
 async def qzb_one(args: Args, req: Request = None):
     ip: str = req.client.host
-    tempdf = store.useFile[store.useFile.filename == args.qzb_data].path
-    if len(tempdf) > 0:
-        qzb_file = store.useFile[store.useFile.filename == args.qzb_data].path.values[0]
-    else:
-        log.err(f"qzb_one:{tempdf}")
-        return 0
+    qzb_file = store.useFile[store.useFile.filename == args.qzb_data].path.values[0]
     use.useApi[ip].qzb = qzb_(qzb_file, store.sendPath / ip,args.choose)
     return next(use.useApi[ip].qzb)
 
@@ -241,9 +233,4 @@ async def generate_qzb(args: Args, req: Request = None):
         use.useApi[ip].qzb = qzb_(qzb_file, store.sendPath / ip,args.choose)
     return res
 
-@router.get("/hzdh_repeat")
-async def hzdh_repeat(req: Request = None):
-    ip = req.client.host
-    use.useApi[ip].Ow.hzdh_repeat(store.sendPath / ip /'hzdh_repeat.xlsx')
-    store.addUseFile(ip, store.sendPath, "hzdh_repeat.xlsx")
-    return '检查完成'
+

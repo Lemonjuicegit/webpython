@@ -2,14 +2,13 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from shapely.geometry import MultiPolygon,mapping,LineString
-from . import groupby
 class Ownership:
     def __init__(self,gdbpath):
         self.ZD = gpd.read_file(gdbpath,layer='ZD').fillna('')
         # self.ZD = self.ZD[self.ZD.QLRMC == '双石镇丁家岩村楠竹林村民小组']
         self.JZD = gpd.read_file(gdbpath,layer='JZD').fillna('')
-        self.JZD['X'] = np.round(self.JZD.geometry.x*100).astype('int64')
-        self.JZD['Y'] = np.round(self.JZD.geometry.y*100).astype('int64')
+        self.JZD['X'] = np.round(self.JZD.geometry.x*10).astype('int64')
+        self.JZD['Y'] = np.round(self.JZD.geometry.y*10).astype('int64')
         # self.JZD = self.JZD[self.JZD.QLRMC == '双石镇丁家岩村楠竹林村民小组']
         # self.get_coordinates(self.ZD)
         self.JZD_All = gpd.read_file(gdbpath,layer='ZD_All')
@@ -75,7 +74,7 @@ class Ownership:
         def add_index(x_y,value,V):
             # if V == 87:
             #     pass
-            temp = [zddm,*(np.round(x_y*100)).astype('int64'),value,V]
+            temp = [zddm,*(np.round(x_y*10)).astype('int64'),value,V]
             return temp
         
         # coor_df = pd.DataFrame(columns=['ZDDM','X','Y','INDEX','JZDH'])
@@ -104,7 +103,6 @@ class Ownership:
                 _coordinates = self.get_coordinates(row)
             else:
                 _coordinates = pd.concat([_coordinates,self.get_coordinates(row)],ignore_index=True)
-        
         self.JZD[~self.JZD.X.isin(_coordinates.X) | ~self.JZD.Y.isin(_coordinates.Y)].to_excel('没匹配上的界址点.xlsx')
         return pd.merge(self.JZD,_coordinates,on=['ZDDM','X','Y'], how='inner'),_coordinates
         
@@ -181,14 +179,15 @@ class Ownership:
         zd_node = pd.DataFrame(columns=('QLRMC','ZDDM','INDEX','ZDDM_INDEX','N','X','Y'))
         for index,row in self.ZD.iterrows():
             geojson = mapping(row.geometry)
+            n = 0
             for index,value in enumerate(geojson['coordinates'][0]):
                 zd_node_row = [{'QLRMC':row.QLRMC,'ZDDM':row.ZDDM,'INDEX':index,'ZDDM_INDEX':row.ZDDM+str(index),'N':n+1,'X':coor[0],'Y':coor[1]} for n,coor in enumerate(value[:len(value)-1])]
                 if not zd_node.shape[0]:
                     zd_node = pd.DataFrame(zd_node_row)
                 else:
                     zd_node = pd.concat([zd_node,pd.DataFrame(zd_node_row)],ignore_index=True)
-        zd_node['int_X'] = np.round(zd_node.X*100).astype('int64')
-        zd_node['int_Y'] = np.round(zd_node.Y*100).astype('int64')
+        zd_node['int_X'] = np.round(zd_node.X*10).astype('int64')
+        zd_node['int_Y'] = np.round(zd_node.Y*10).astype('int64')
         for index,value in JZXDF.iterrows():
             ZD_boundary = zd_node[zd_node.ZDDM_INDEX == value.ZDDM_INDEX].reset_index()
             q_jzd = self.JZD[(self.JZD.ZDDM ==value.ZDDM) & (self.JZD.JZD_NEW == value.QSDH)]
@@ -220,16 +219,6 @@ class Ownership:
                 jzxcopy.loc[index,'ZJDH'] = f"{row.ZJDH[0]}...{row.ZJDH[-1]}"
         return jzxcopy.fillna('')
     
-    def hzdh_repeat(self,save):
-        # 检查界址点重复
-        jzd_data = self.JZD.copy()
-        jzd_data['ZDDM_JZDH'] = jzd_data.ZDDM + jzd_data.JZD_NEW
-        countdf = groupby(jzd_data,['ZDDM_JZDH'],'count')
-        countdf['ZDDM'] = countdf['ZDDM_JZDH'].str[:19]
-        countdf['JZDH'] = countdf['ZDDM_JZDH'].str[19:]
-        countdf = countdf[countdf['COUNT']>1]
-        countdf.to_excel(save,index=False)
-        
                 
 if __name__ == '__main__':
     Ow = Ownership(r'E:\工作文档\SLLJDJZD2.gdb')

@@ -1,11 +1,4 @@
-import routers.Djmod
 import routers.store
-import routers.Djmod
-zip_list = routers.Djmod.zip_list
-filrDF = routers.Djmod.fileDF
-ipstr = routers.Djmod.ipstr
-unzip = routers.Djmod.unzip
-Myerr = routers.Djmod.Myerr
-Djlog = routers.Djmod.Djlog
+from .Djmod import zipDir,groupby,Djlog,zip_list,fileDF,ipstr,unzip
+from .Use import use
 store = routers.store.store
-zip_list  =routers.Djmod.zip_list

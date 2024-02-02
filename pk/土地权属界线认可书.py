@@ -74,6 +74,7 @@ def generate_jxrks(qlr,gdf_ZD,gdf_jzx):
     XLXZ = [v for v in XLXZ if v != '']
     XLCM = [v for v in XLCM if v != '']
     XLSM = [v for v in XLSM if v not in ['','桐梁区','大足区','璧山区','江津区','荣昌区']]
+    log.info(qlr)
     doc.render({
         'BXZ':sift_jzx['BXZ'].values[0],
         'BCM':sift_jzx['BCM'].values[0],
@@ -206,7 +207,6 @@ def generate_jzsm(zddmlist, qlr, jzd_data, jzx_data):
     dwsm = ""  # 点位说明
     jxzx = ""  # 界线走向
     for zddm in zddmlist:
-        log.info(f"{zddm}的界址信息")
         jzd_jzsm = jzd_data[jzd_data["ZDDM"] == zddm]
         jzx_jzsm = jzx_data[jzx_data["ZDDM"] == zddm]
         dwsmdict = {}

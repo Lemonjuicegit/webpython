@@ -1,4 +1,6 @@
-from Djmod import Myerr
+from . import groupby
+import pandas as pd
 
+data = pd.read_excel(r"E:\工作文档\中山路街道tfh.xlsx")
 
-print(Myerr)
+aa = groupby(data,['TFH'],'count')

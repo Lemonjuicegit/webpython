@@ -1,21 +1,37 @@
 
-from pathlib import Path
-import pandas as pd
 from fastapi import  Request,APIRouter
 from pydantic import BaseModel
-from starlette.responses import FileResponse
-from .ZDFlyIn_out import ZDFlyIn_out
+from . import ZDFlyOut,ZDFlyIn
 from .. import store
-from .. import zip_list
+
 router = APIRouter()
 
 
 class Args(BaseModel):
-    tab_name: str=''
-    shp_name: str=''
-    KEY:str=''
+    FrData: str=''
+    FcData: str=''
     end:int = 0 # 结束标识
 
     
-uploadPath = Path(r"E:\exploitation\webpython\upload")
-sendPath = Path(r"E:\exploitation\webpython\send")
+@router.post("/fc")
+async def fc(args: Args, req: Request = None):
+    ip = req.client.host
+    dataPath = store.useFile[store.useFile.filename == args.FcData].path
+    if len(dataPath) < 1:
+        return 0
+    frfcDf = ZDFlyOut(dataPath.values[0])
+    frfcDf.to_excel(store.sendPath / ip / 'fc.xlsx',index=False)
+    store.addUseFile(ip, store.sendPath, 'fc.xlsx')
+    return 1
+
+@router.post("/fr")
+async def fr(args: Args, req: Request = None):
+    ip = req.client.host
+    
+    dataPath = store.useFile[store.useFile.filename == args.FrData].path
+    if len(dataPath) < 1:
+        return 0
+    frfcDf = ZDFlyIn(dataPath.values[0])
+    frfcDf.to_excel(store.sendPath / ip / 'fr.xlsx',index=False)
+    store.addUseFile(ip, store.sendPath, 'fr.xlsx')
+    return 1

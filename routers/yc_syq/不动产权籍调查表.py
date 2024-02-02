@@ -1,5 +1,5 @@
-
-from pathlib import Path
+import re
+import pandas as pd
 from docxtpl import DocxTemplate
 from docx import Document
 from docx.oxml.ns import qn
@@ -7,8 +7,11 @@ from docx.shared import Pt, Cm
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from . import Djmod
+from pathlib import Path
+from . import config
 
-template_path = Path(r'E:\exploitation\webpython\routers\dz_syq\template')
+
+template_path = Path(config.config.template_path)
 log = Djmod.Djlog()
 
 
@@ -54,6 +57,7 @@ def setCelltext(
 # 宗地数据格式化
 def get_zd_data(zd_data, jzx_data, jzd_gdf):
     tidyup = {}
+    n = 0
     # 宗地数据格式化
     for _, row in zd_data.iterrows():
         if row["QLRMC"] not in tidyup:
@@ -62,7 +66,6 @@ def get_zd_data(zd_data, jzx_data, jzd_gdf):
                 "NUM": 1,
                 "jzx_data": [],
                 "ZDDM_list": {row["ZDDM"]},
-                'TDZL':row['TDZL']
             }
         else:
             tidyup[row["QLRMC"]]["ZDDM"] = f"{tidyup[row['QLRMC']]['ZDDM']}、{row['ZDDM']}"
@@ -101,8 +104,10 @@ def get_zd_data(zd_data, jzx_data, jzd_gdf):
 
 
 def generate_head(zddm):
-    doc = DocxTemplate(template_path / "不动产权籍调查表.docx")  # type: ignore
-    doc.render({'ZDDM':zddm})
+    doc = Document(template_path / "不动产权籍调查表.docx")  # type: ignore
+    doc.paragraphs[8].runs[2].text = (
+        doc.paragraphs[8].runs[2].text.replace("@ZDDM@", zddm)
+    )
     return doc
 
 
@@ -165,7 +170,9 @@ def generate_jzjb(jzddf):
 
                 if row["SM"]:
                     setCelltext(doc.tables[0], num + 4, 11, row["SM"])
-                    doc.tables[0].cell(num + 4, 11).paragraphs[0].runs[0].font.size = Pt(7.5)
+                    doc.tables[0].cell(num + 4, 11).paragraphs[0].runs[
+                        0
+                    ].font.size = Pt(7.5)
                 num += 2
             setCelltext(doc.tables[0], num + 3, 0, jdz_boundary.at[0, "JZD_NEW"])
             num += 2
@@ -189,15 +196,14 @@ def generate_jzjb(jzddf):
 
                     if SM:
                         setCelltext(doc.tables[0], num + 4, 11, SM)
-                        doc.tables[0].cell(num + 4, 11).paragraphs[0].runs[0].font.size = Pt(7.5)
+                        doc.tables[0].cell(num + 4, 11).paragraphs[0].runs[
+                            0
+                        ].font.size = Pt(7.5)
                     num += 2
                 elif i == 4:
                     setCelltext(doc.tables[0], num + 3, 0, ". . .")
                     setCelltext(doc.tables[0], num + 3, 6, "√")
                     setCelltext(doc.tables[0], num + 3, 9, "√")
-                    if SM:
-                        setCelltext(doc.tables[0], num + 3, 11, SM)
-                        doc.tables[0].cell(num + 3, 11).paragraphs[0].runs[0].font.size = Pt(7.5)
                     num += 2
                 elif i > 4:
                     JZD_NEW = jdz_boundary.iloc[-1].JZD_NEW
@@ -215,12 +221,30 @@ def generate_jzjb(jzddf):
                         log.err(f"{zddm}-{JZD_NEW}:界址线位置填写不正确")
                     if SM:
                         setCelltext(doc.tables[0], num + 4, 11, SM)
-                        doc.tables[0].cell(num + 4, 11).paragraphs[0].runs[0].font.size = Pt(7.5)
+                        doc.tables[0].cell(num + 4, 11).paragraphs[0].runs[
+                            0
+                        ].font.size = Pt(7.5)
                     num += 2
             setCelltext(doc.tables[0], num + 3, 0, jdz_boundary.at[0, "JZD_NEW"])
             num += 2
     return doc
 
+
+# 界址签章表组件
+# def add_jzqz(table, data):
+#     table.add_row()
+#     setCelltext(table,len(table.rows) - 1,0, data['QSDH'],font_name_='Times New Roman')
+#     if data['ZJDH']:
+#         setCelltext(table,len(table.rows) - 1,1,data['ZJDH'],font_name_='Times New Roman')
+#     setCelltext(table,len(table.rows) - 1,2,data['ZZDH'],font_name_='Times New Roman')
+#     setCelltext(table, len(table.rows) - 1, 3, data['LZQLRMC'])
+#     if re.search('村民小组', data['LZQLRMC']):
+#         setCelltext(table, len(table.rows) - 1, 4, data['qz1'])
+#     setCelltext(table, len(table.rows) - 1, 5, data['qz2'])
+#     setCelltext(table, len(table.rows) - 1, 7, data['dkm'])
+
+
+# 界址签章表
 def generate_jzqz(data):
     doc = DocxTemplate(template_path / "界址签章表.docx")
     doc.render({"jzxdata": data})
@@ -278,20 +302,18 @@ def generate_jzsm(zddmlist, qlr, jzd_data, jzx_data):
     dwsm = ""  # 点位说明
     jxzx = ""  # 界线走向
     for zddm in zddmlist:
+        log.info(f"{zddm}的界址信息")
         jzd_jzsm = jzd_data[jzd_data["ZDDM"] == zddm]
         jzx_jzsm = jzx_data[jzx_data["ZDDM"] == zddm]
         dwsmdict = {}
         if [v for v in jzd_jzsm.点位说明.values if v]:
             dwsm += f"{qlr}{zddm}\n"
-        temp = []
         for _, row in jzd_jzsm.iterrows():
-            if row["点位说明"] and (row["JZD_NEW"] not in temp):
+            if row["点位说明"]:
                 if row["点位说明"] not in dwsmdict:
                     dwsmdict[row["点位说明"]] = row["JZD_NEW"]
-                    temp.append(row["JZD_NEW"])
                 else:
                     dwsmdict[row["点位说明"]] = f"{dwsmdict[row['点位说明']]}、{row['JZD_NEW']}"
-                    temp.append(row["JZD_NEW"])
         for key, value in dwsmdict.items():
             dwsm += f"{value}位于{key}交界处。\n"
 
@@ -312,10 +334,15 @@ def generate_zdct(jpg_path):
 
 def generate_shb():
     doc = Document(template_path / "调查审核表.docx")  # type: ignore
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for par in cell.paragraphs:
+                    par.paragraph_format.space_after = Pt(0)
     return doc
 
 
-def generate_qjdc_(zd_data, jzd_data, jzx_data, savepath, jpg_zdct, control):
+def generate_qjdc(zd_data, jzd_data, jzx_data, savepath, jpg_zdct, control):
     
     for key, row in get_zd_data(zd_data, jzx_data, jzd_data).items():
         docxlist = []
@@ -345,7 +372,7 @@ def generate_qjdc_(zd_data, jzd_data, jzx_data, savepath, jpg_zdct, control):
             mjtj = generate_mjtj(row["ZDDM_list"], zd_data)
             docxlist.append(mjtj)
         if control["jzsm"]:
-            jzsm = generate_jzsm(row["ZDDM_list"], row['TDZL'], jzd_data, jzx_data)
+            jzsm = generate_jzsm(row["ZDDM_list"], key, jzd_data, jzx_data)
             docxlist.append(jzsm)
         if control["shb"]:
             shb = generate_shb()
@@ -354,4 +381,6 @@ def generate_qjdc_(zd_data, jzd_data, jzx_data, savepath, jpg_zdct, control):
         yield f"{row['QLRMC']}权籍调查表"
 
 
-
+if __name__ == "__main__":
+    config = config.config
+    gdb_path = config.gdb_path

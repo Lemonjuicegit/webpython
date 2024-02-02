@@ -8,6 +8,7 @@ from docx import Document
 from docxcompose.composer import Composer
 from pathlib import Path
 from decimal import Decimal
+
 def dround(num,ndigits):
     return round(Decimal(str(num)),ndigits)
 
@@ -42,13 +43,11 @@ def unzip(zip_path: str, unzip_path: str,filetype:str=''):
             return zip_path
         return namelist
 
-
 def zip_list(filelist: list[str|Path], zipname):
     # 多个文件压缩
     with zipfile.ZipFile(zipname, "w") as zip_file:
         for fpath in filelist:
             zip_file.write(fpath, arcname=str(fpath).split(os.sep)[-1])
-
 
 def groupby(df: pd.DataFrame, by: list[str], agg: str):
     """agg:[
@@ -144,40 +143,6 @@ def compose_docx(docxlist, output_file_path: str):
     composer.save(output_file_path)
 
 
-def docxtabel_indaex(docxtabel, is_run=False):
-    # 生成索引
-    row = docxtabel.rows
-    s = 0
-    for i in range(len(row)):
-        cell = row[i].cells
-        d = 0
-        for r in cell:
-            if is_run:
-                p = 0
-                for par in r.paragraphs:
-                    run_num = 0
-                    for run in par.runs:
-                        print(f"{s}-{d}-{p}-{run_num}:{run.text}")
-                        run_num += 1
-                    p += 1
-            else:
-                print(f"{s}-{d}:{r.text}")
-            d += 1
-        s += 1
-
-
-def docxpar_indaex(docxtabel):
-    # 生成索引
-    pars = docxtabel.paragraphs
-    s = 0
-    for i in range(len(pars)):
-        run = pars[i].runs
-        d = 0
-        for r in run:
-            print(f"{s}-{d}:{r.text}")
-            d += 1
-        s += 1
-
 
 def setCelltext(table_, row_, cell_, text_, fontname_="", font_size_=Pt(10.5)):
     """
@@ -200,9 +165,19 @@ def setCelltext(table_, row_, cell_, text_, fontname_="", font_size_=Pt(10.5)):
     table_.rows[row_].cells[cell_].paragraphs[0].runs[0].font.size = font_size_
     if fontname_:
         table_.rows[row_].cells[cell_].paragraphs[0].runs[0].font.name = fontname_
+        
+def groupby(df: pd.DataFrame, by: list[str], agg: str):
+    """agg:[
+        'any','all','count','cov','first','idxmax',
+        'idxmin','last','max','mean','median','min',
+        'nunique','prod','quantile','sem','size',
+        'skew','std','sum','var'
+    ]
+    """
+    Aggfield = agg.upper()
+    df2 = df.copy()
+    df2[Aggfield] = ""
+    by_df = pd.DataFrame(df2.groupby(by=by)[Aggfield].agg(agg))
+    by_df.reset_index(inplace=True)
+    return by_df
 
-class Myerr(Exception):
-    def __init__(self, msg):
-        self.msg = msg
-    def __str__(self):
-        return self.msg

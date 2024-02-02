@@ -92,9 +92,9 @@ def generate_jzdcg(data,jzd_data, qlr,mj,save_path):
         row_index = ws.max_row
         add_border(ws[f'A{row_index-2}:E{row_index}'])
     assignment_cell(ws[f'A{ws.max_row+1}'],'计算者：')
-    assignment_cell(ws[f'B{ws.max_row}'],'袁珊')
+    assignment_cell(ws[f'B{ws.max_row}'],'邬小林')
     assignment_cell(ws[f'D{ws.max_row}'],'查核者')
-    assignment_cell(ws[f'E{ws.max_row}'],'余勇')
+    assignment_cell(ws[f'E{ws.max_row}'],'张兵')
     
     wb.save(save_path)
     

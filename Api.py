@@ -2,8 +2,6 @@ import pandas as pd
 import geopandas as gpd
 from pk import Sign
 from pk.areaClassification import exportArea
-from pk.Ownership import Ownership
-from pk.不动产权籍调查表 import generate_qjdc
 from pk import Stacking
 class Api:
   def __init__(self) -> None:
@@ -21,6 +19,8 @@ class Api:
     self.jzdcg = None  # 界址点成果表生成器
     self.classifiedArea = None # 面积分类表生成器
     self.classifiedAreaCount = 0
+    self.qzb = None # 签字表生成器
+    self.zipFile = []
 
   def getSign_date(self,xlsx_teb):
     self.result = Sign.get_date(xlsx_teb)
@@ -28,11 +28,10 @@ class Api:
   def exportArea(self,datapath,df_fda):
     return exportArea(datapath,df_fda)
   
-  def createOwnership(self,gdb):
-    self.Ow = Ownership(gdb)
+  def createOwnership(self,gdb,precision,Ownership):
+    self.Ow = Ownership(gdb,precision)
     field_zd = set(self.Ow.ZD.columns)
     field_zd = {'QLRMC','ZDDM','BDCDYH','TFH','飞地坐落','ZDMJ','TDZL','FRDB','LXDH','ZJHM','SZD','SZX','SZB','SZN','FDQK'} - field_zd
-
     if field_zd:
       self.Ow = None
       return f'宗地字段不正确:{field_zd}'
@@ -42,10 +41,10 @@ class Api:
     self.jzx_df = pd.read_excel(path)
     return '界址线设置成功'
     
-  def generate_qjdc(self,control,savepath)->int:
+  def generate_qjdc(self,control,savepath,generate_qjdc)->int:
     zd_data_ = gpd.read_file(self.gdb,layer='ZD')
     zd_data_ = zd_data_.fillna('')
-    jzd_data_ = self.Ow.JZD.fillna('')
+    jzd_data_ = self.Ow.JZD
     jzd_data_.sort_values(by=['ZDDM','PX'], inplace=True)
     self.handleGenerate_qjdc = generate_qjdc(zd_data_,jzd_data_,self.Ow.JZX,savepath,self.jpg_zdct,control)
     return self.Ow.qlrcount

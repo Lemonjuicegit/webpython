@@ -7,6 +7,9 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx import Document
 from docxcompose.composer import Composer
 from pathlib import Path
+from decimal import Decimal
+def dround(num,ndigits):
+    return round(Decimal(str(num)),ndigits)
 
 def fileDF(directory_list: list[str]):
     df = pd.DataFrame(columns=["directory", "filename", "path", "type", "name"])
@@ -46,21 +49,6 @@ def zip_list(filelist: list[str|Path], zipname):
         for fpath in filelist:
             zip_file.write(fpath, arcname=str(fpath).split(os.sep)[-1])
 
-def zipDir(dirpath, outFullName):
-    """
-    压缩指定文件夹
-    :param dirpath: 目标文件夹路径
-    :param outFullName: 压缩文件保存路径+xxxx.zip
-    :return: 无
-    """
-    zip = zipfile.ZipFile(outFullName, "w", zipfile.ZIP_DEFLATED)
-    for path, dirnames, filenames in os.walk(dirpath):
-        # 去掉目标跟路径，只对目标文件夹下边的文件及文件夹进行压缩
-        fpath = path.replace(dirpath, '')
- 
-        for filename in filenames:
-            zip.write(os.path.join(path, filename), os.path.join(fpath, filename))
-    zip.close()
 
 def groupby(df: pd.DataFrame, by: list[str], agg: str):
     """agg:[
@@ -86,7 +74,7 @@ class Djlog:
             filename=f"./log/{time.strftime('%Y%m%d', time.gmtime(time.time()))}.log",
             format="%(asctime)s %(filename)s:%(lineno)s %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
-            encoding="utf-8"
+            encoding="utf-8",
         )
         self.debug = logging.debug
         self.info = logging.info
@@ -94,7 +82,9 @@ class Djlog:
         self.err = logging.error
 
 
-def logErr(log: Djlog,):  # -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:
+def logErr(
+    log: Djlog,
+):  # -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:
     # 错误日志输出
     def outwrapper(func):
         @wraps(func)
@@ -154,7 +144,39 @@ def compose_docx(docxlist, output_file_path: str):
     composer.save(output_file_path)
 
 
+def docxtabel_indaex(docxtabel, is_run=False):
+    # 生成索引
+    row = docxtabel.rows
+    s = 0
+    for i in range(len(row)):
+        cell = row[i].cells
+        d = 0
+        for r in cell:
+            if is_run:
+                p = 0
+                for par in r.paragraphs:
+                    run_num = 0
+                    for run in par.runs:
+                        print(f"{s}-{d}-{p}-{run_num}:{run.text}")
+                        run_num += 1
+                    p += 1
+            else:
+                print(f"{s}-{d}:{r.text}")
+            d += 1
+        s += 1
 
+
+def docxpar_indaex(docxtabel):
+    # 生成索引
+    pars = docxtabel.paragraphs
+    s = 0
+    for i in range(len(pars)):
+        run = pars[i].runs
+        d = 0
+        for r in run:
+            print(f"{s}-{d}:{r.text}")
+            d += 1
+        s += 1
 
 
 def setCelltext(table_, row_, cell_, text_, fontname_="", font_size_=Pt(10.5)):
@@ -178,3 +200,9 @@ def setCelltext(table_, row_, cell_, text_, fontname_="", font_size_=Pt(10.5)):
     table_.rows[row_].cells[cell_].paragraphs[0].runs[0].font.size = font_size_
     if fontname_:
         table_.rows[row_].cells[cell_].paragraphs[0].runs[0].font.name = fontname_
+
+class Myerr(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+    def __str__(self):
+        return self.msg
