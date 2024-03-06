@@ -13,6 +13,8 @@ from .. import zipDir
 from . import qzb_
 from .. import store
 from .. import use
+from . import Ownership
+from . import generate_qjdc_
 router = APIRouter()
 log = Djlog()
 
@@ -33,10 +35,10 @@ class Args(BaseModel):
 async def createOwnership(args: Args, req: Request = None):
     ip = req.client.host
     if (store.uploadPath / ip / f"{args.gdb}.gdb").exists():
-        res = use.useApi[ip].createOwnership(store.uploadPath / ip / f"{args.gdb}.gdb")
+        use.useApi[ip].Ow = Ownership(store.uploadPath / ip / f"{args.gdb}.gdb")
         use.useApi[ip].gdb = store.uploadPath / ip / f"{args.gdb}.gdb"
         use.useApi[ip].jzx = use.useApi[ip].Ow.add_jzx_all()
-        return res
+        return '数据库设置成功'
     else:
         return "数据库加载失败"
 
@@ -89,7 +91,7 @@ async def set_zdct(args: Args, req: Request = None):
 @router.post("/generate_qjdc")
 async def generate_qjdc(args: Args, req: Request = None):
     ip = req.client.host
-    return use.useApi[ip].generate_qjdc(args.control, store.sendPath / ip)
+    return use.useApi[ip].generate_qjdc(args.control, store.sendPath / ip,generate_qjdc_)
 
 
 @router.post("/handleGenerate_qjdc")
@@ -102,7 +104,6 @@ async def handleGenerate_qjdc(args: Args, req: Request = None):
         zip_list(use.useApi[ip].zipFile, store.sendPath / ip / "权籍调查表.zip")
         store.addUseFile(ip, store.sendPath, "权籍调查表.zip")
         use.useApi[ip].zipFile = []
-        return use.useApi[ip].generate_qjdc(args.control, store.sendPath / ip)
     return res
 
 

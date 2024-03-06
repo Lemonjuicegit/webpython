@@ -39,7 +39,8 @@ def real_estate_zjtzs(data,save_path):
 	doc_temp.render({
 		'zl':data['QSDWMC'],
 		'jhdd':data['jhdd'],
-		'qlr':data['镇村社']
+    'qlr':data['镇村社'],
+		'qlr2':data['QLR2']
 	})
 	
 	doc_temp.save(os.path.join(save_path,'指界通知书.docx'))
@@ -85,7 +86,8 @@ def qzb_(qzb_file,save_path,choose):
                                  '面积':row['宗地面积'],
                                  'txdz':row['txdz'],
                                  'jhdd':row['jhdd'],
-                                 'QLR':row['QLR']}
+                                 'QLR':row['QLR'],
+                                 'QLR2':row['QLR2']}
   yield len(data_dic)
   for row in data_dic:
     save_path_ = os.path.join(save_path,'签字资料',data_dic[row]['村名'],'签字资料',data_dic[row]['QSDWMC'])

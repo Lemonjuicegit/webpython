@@ -54,11 +54,6 @@ def generate_jzdcg(data,jzd_data, qlr,mj,save_path):
     for zddm in data:
         n = 0
         zd_jzd = jzd_data[jzd_data['ZDDM'] == zddm]
-        # a= ws.max_row//62
-        # b = (zd_jzd.shape[0] + 4 + ws.max_row)//62
-        # if (a != b) and ((zd_jzd.shape[0]+ 4 + ws.max_row) != (a+1)*62):
-        #     for _ in range((a+1)*62-ws.max_row):
-        #         ws[f'A{ws.max_row+1}'].value = ''
         head_zddm(ws,f"宗地代码：{zddm}") 
         for _,row in zd_jzd.iterrows():
             assignment_cell(ws[f'A{ws.max_row+1}'],row['JZD_NEW'])

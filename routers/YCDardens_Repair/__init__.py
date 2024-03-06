@@ -1,0 +1,1 @@
+from .opinion import generate_opinion_all

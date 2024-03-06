@@ -13,9 +13,11 @@ def ZDFlyOut(xlsxpath):
     merged = pd.merge(df, grouped1, on=['QLRMC','QLRMC2'], how='left')
     def dispose(row):
         if '村民小组' in row.QLRMC:
-            merged.loc[row.name,'FC'] = f"本村民小组飞出{row.QLRMC2}{row.COUNT2}宗地"
+            if re.search('(村民小组)|(居民组)',row.QLRMC2):
+                merged.loc[row.name,'FC'] = f"本村民小组飞出{row.QLRMC2}{row.COUNT2}宗地"
         elif '居民组' in row.QLRMC:
-            merged.loc[row.name,'FC'] = f"本居民组飞出{row.QLRMC2}{row.COUNT2}宗地"
+            if re.search('(村民小组)|(居民组)',row.QLRMC2):
+                merged.loc[row.name,'FC'] = f"本居民组飞出{row.QLRMC2}{row.COUNT2}宗地"
         else:
             merged.loc[row.name,'FC'] = ''
     merged.apply(dispose,axis=1)
@@ -30,7 +32,10 @@ def ZDFlyOut(xlsxpath):
     merged.apply(fr_dict, axis=1)
     for k,v in fcdict.items():
         fclist.append({'QLRMC':k,'FCQK':'、'.join(v)})
-    merged = pd.merge(merged, pd.DataFrame(fclist), on=['QLRMC'], how='left')
+    try:
+        merged = pd.merge(merged, pd.DataFrame(fclist), on=['QLRMC'], how='left')
+    except:
+        pass
     return merged
 
 def ZDFlyIn(xlsxpath):

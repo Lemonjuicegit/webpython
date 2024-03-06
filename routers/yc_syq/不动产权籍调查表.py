@@ -318,7 +318,7 @@ def generate_jzsm(zddmlist, qlr, jzd_data, jzx_data):
             dwsm += f"{value}位于{key}交界处。\n"
 
         jxzx += get_jxzx(jzd_jzsm, jzx_jzsm)
-    doc.render({"DWSM": dwsm, "JXZX": jxzx})
+    doc.render({"DWSM": dwsm, "JXZX": jxzx})  
     return doc
 
 
@@ -342,7 +342,7 @@ def generate_shb():
     return doc
 
 
-def generate_qjdc(zd_data, jzd_data, jzx_data, savepath, jpg_zdct, control):
+def generate_qjdc_(zd_data, jzd_data, jzx_data, savepath, jpg_zdct, control):
     
     for key, row in get_zd_data(zd_data, jzx_data, jzd_data).items():
         docxlist = []

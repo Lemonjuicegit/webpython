@@ -16,7 +16,6 @@ class Args(BaseModel):
     KEY:str=''
     end:int = 0 # 结束标识
 
-    
 uploadPath = Path(r"E:\exploitation\webpython\upload")
 sendPath = Path(r"E:\exploitation\webpython\send")
 

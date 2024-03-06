@@ -17,6 +17,7 @@ from routers import store
 from routers import dz_syq
 from routers import yc_syq
 from routers import ZDFlyIn_out
+from routers import test
 
 app = FastAPI()
 log = Djlog()
@@ -33,6 +34,7 @@ app.include_router(tableformat.router,prefix=f"{rewrite}/tableformat",tags=["tab
 app.include_router(dz_syq.router,prefix=f"{rewrite}/dz_syq",tags=["dz_syq"])
 app.include_router(yc_syq.router,prefix=f"{rewrite}/yc_syq",tags=["yc_syq"])
 app.include_router(ZDFlyIn_out.router,prefix=f"{rewrite}/ZDFlyIn_out",tags=["ZDFlyIn_out"])
+app.include_router(test.router,prefix=f"{rewrite}/test",tags=["test"])
 
 class Args(BaseModel):
     gdb: str = ""
@@ -180,10 +182,6 @@ async def stacking(args: Args,req: Request = None):
     return '堆叠融合处理完成'
 
 
+
 if __name__ == "__main__":
-    @app.post(f"{rewrite}/test")
-    def test(req: Request):
-        ip = req.client.host
-        print(ip)
-        return "test"
-    uvicorn.run(app, host="192.168.2.51", port=8000)
+    uvicorn.run(app, host="192.168.2.51", port=55554)

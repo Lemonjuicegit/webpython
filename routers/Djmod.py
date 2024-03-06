@@ -153,10 +153,6 @@ def compose_docx(docxlist, output_file_path: str):
         n += 1
     composer.save(output_file_path)
 
-
-
-
-
 def setCelltext(table_, row_, cell_, text_, fontname_="", font_size_=Pt(10.5)):
     """
       word单元格居中赋值
@@ -178,3 +174,24 @@ def setCelltext(table_, row_, cell_, text_, fontname_="", font_size_=Pt(10.5)):
     table_.rows[row_].cells[cell_].paragraphs[0].runs[0].font.size = font_size_
     if fontname_:
         table_.rows[row_].cells[cell_].paragraphs[0].runs[0].font.name = fontname_
+        
+def multiValueSplicing(data_path,fid,format_value,symbols='、'):
+    """
+    多值拼接
+    :param data:数据
+    :param fid:字段id
+    :param format_value:格式化拼接值值
+    :return:
+    """
+    df = pd.read_excel(data_path)
+    data_dict = {}
+    
+    def dispose(row):
+        if row[fid] not in data_dict.keys():
+            data_dict[row[fid]] = row[format_value]
+        else:
+            data_dict[row[fid]] = f"{data_dict[row[fid]]}{symbols}{row[format_value]}"
+    
+    df.apply(dispose,axis=1)
+    res_df = pd.DataFrame([{'id':k,'value':v} for k,v in data_dict.items() ])
+    return res_df

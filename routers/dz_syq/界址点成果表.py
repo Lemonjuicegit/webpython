@@ -1,4 +1,3 @@
-import geopandas as gpd
 import openpyxl
 from pathlib import Path
 from openpyxl import Workbook
@@ -91,6 +90,8 @@ def generate_jzdcg(data,jzd_data, qlr,mj,save_path):
         ws.merge_cells(start_row=row_index-2, start_column=2, end_row=row_index-1, end_column=2)
         row_index = ws.max_row
         add_border(ws[f'A{row_index-2}:E{row_index}'])
+    ws.cell(2, ws.max_row-1).number_format = '0.000'
+    ws.cell(3, ws.max_row-1).number_format = '0.000'
     assignment_cell(ws[f'A{ws.max_row+1}'],'计算者：')
     assignment_cell(ws[f'B{ws.max_row}'],'袁珊')
     assignment_cell(ws[f'D{ws.max_row}'],'查核者')

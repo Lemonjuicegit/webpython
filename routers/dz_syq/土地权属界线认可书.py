@@ -230,6 +230,7 @@ def generate_jxrks_all(gdf_ZD,gdf_jzd,jzx_df,savepath,control):
         doclist = []
         ZDDM_list = gdf_ZD[gdf_ZD.QLRMC == qlr].ZDDM.drop_duplicates().values
         jzjb_data = gdf_jzd[gdf_jzd.ZDDM.isin(ZDDM_list)]
+        jzsmjbName = 1
         if control['jxrks']:
             jxrks = generate_jxrks(qlr,gdf_ZD,jzx_df)
             if not jxrks:
@@ -242,7 +243,10 @@ def generate_jxrks_all(gdf_ZD,gdf_jzd,jzx_df,savepath,control):
             doclist.append(jzsmjb)
             jzsm = generate_jzsm(ZDDM_list, qlr, jzjb_data, jzx_df)
             doclist.append(jzsm)
-        Djmod.compose_docx(doclist, Path(savepath)/ f"{qlr}界线认可书.docx") # type: ignore
+            jzsmjbName = 0
+            Djmod.compose_docx(doclist, Path(savepath)/ f"{qlr}界线认可书界址界标.docx")
+        if jzsmjbName:
+            Djmod.compose_docx(doclist, Path(savepath)/ f"{qlr}界线认可书.docx") # type: ignore
         yield f"{qlr}界线认可书"
 
 if __name__ == '__main__':

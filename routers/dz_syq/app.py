@@ -1,19 +1,28 @@
-import json
+import json,asyncio,math
+from pathlib import Path
 import pandas as pd
 import geopandas as gpd
-from fastapi import  Request,APIRouter
+from fastapi import  Request,APIRouter,WebSocket
 from pydantic import BaseModel
+from starlette.websockets import WebSocketDisconnect
 from .Djmod import Djlog
-from .import generate_jxrks_all
-from . import generate_jzdcg_all
-from . import Area_table_all
-from . import  zip_list
-from .. import zipDir
-from . import generate_qjdc_
-from . import qzb_
-from . import Ownership
-from .. import store
-from .. import use
+from .import ( 
+    generate_jxrks_all,
+    generate_jzdcg_all,
+    Area_table_all,
+    zip_list,
+    generate_qjdc_,
+    generate_qjdcAsync,
+    qzb_,
+    Ownership
+)
+
+from .. import (
+    zipDir,
+    store,
+    use,
+    state
+)
 router = APIRouter()
 log = Djlog()
 
@@ -28,6 +37,10 @@ class Args(BaseModel):
     Areadatapath: str = ""  # 所有权面积分类excel数据路径
     df_fda: str = ""  # 面积统计表飞地excel数据路径
     precision:int|float = 10 # 界址点匹配精度
+    type: str = ""  # websocket发来消息的类型
+    
+async def send_progress(websocket, progress):
+    await websocket.send_text(progress)
 
 @router.post("/createOwnership")
 async def createOwnership(args: Args, req: Request = None):
@@ -60,6 +73,32 @@ async def createLine(args: Args, req: Request = None):
         )
     return res
 
+@router.websocket("/ws/createLine/{client_id}")
+async def createLine_socket(websocket: WebSocket,client_id: str):
+    await websocket.accept()
+    ip = websocket.client.host
+    print('socket连接成功')
+    while True:
+        try:
+            message = json.loads(await websocket.receive_text())
+            if message['type'] != 'ping':
+                zdcount = use.useApi[ip].Ow.zdcount
+                count = 0         
+                async for res in use.useApi[ip].Ow.add_jzx_():
+                    count += 1
+                    await websocket.send_json({'res':f"({count}/{zdcount})|{res}",'count':math.ceil(count/use.useApi[ip].Ow.zdcount*100),'MessageStatus':state.RES})
+                await websocket.send_json( {
+                    "data": json.loads(use.useApi[ip].Ow.JZX.to_json(orient="records")),
+                    'MessageStatus':state.END
+                })
+                use.useApi[ip].Ow.JZX = use.useApi[ip].Ow.ZJDH_format()
+                await websocket.send_json({'res':'生成界址线完成','count':100,'MessageStatus':state.RES})
+            else:
+                await websocket.send_json({'res':'ponp','MessageStatus':state.PONP})    
+        except asyncio.exceptions.CancelledError:
+            log.info('界址线生成连接关闭')  # 连接被关闭时退出循环
+        except WebSocketDisconnect as wsd:
+            log.err(f'界址线生成连接意外的断开({wsd})')
 
 @router.post("/set_jzx_excel")
 async def set_jzx_excel(args: Args, req: Request = None):
@@ -79,7 +118,6 @@ async def to_JZXexcel(req: Request = None):
         store.addUseFile(ip,store.sendPath, "JZX.xlsx")
     return "界址线数据导出成功"
 
-
 @router.post("/set_zdct")
 async def set_zdct(args: Args, req: Request = None):
     ip = req.client.host
@@ -97,8 +135,8 @@ async def handleGenerate_qjdc(args: Args, req: Request = None):
     ip = req.client.host
     try:
         res = next(use.useApi[ip].handleGenerate_qjdc)
-    except:
-        pass
+    except Exception as e:
+        log.err(str(e))
     use.useApi[ip].zipFile.append(store.sendPath / ip / f"{res}.docx")
     store.addUseFile(ip, store.sendPath, f"{res}.docx")
     if args.end == 1:
@@ -108,6 +146,36 @@ async def handleGenerate_qjdc(args: Args, req: Request = None):
         return 1
     return res
 
+@router.websocket("/ws/generate_qjdc/{client_id}")
+async def generate_qjdc_socket(websocket: WebSocket,client_id: str):
+    await websocket.accept()
+    ip = websocket.client.host
+
+    while True:
+        try:
+            args = json.loads(await websocket.receive_text())
+            if args['type'] != 'ping':
+                if use.useApi[ip].Ow is None:
+                    await websocket.send_json({'res':'没有加载数据库','count':0,'MessageStatus':state.ERR})
+                elif use.useApi[ip].Ow.JZX.shape[0] == 0:
+                    await websocket.send_json({'res':'没有生成界址线数据','count':0,'MessageStatus':state.ERR})
+                else:
+                    qlrcount = use.useApi[ip].generate_qjdc(args['control'], store.sendPath / ip,generate_qjdcAsync)
+                    count = 0
+                    zipFile = []
+                    async for res in use.useApi[ip].handleGenerate_qjdc:
+                        count += 1
+                        await websocket.send_json({'res':f"({count}/{qlrcount})|{res}",'count':math.ceil(count/qlrcount*100),'MessageStatus':state.RES})
+                        zipFile.append(store.sendPath / ip / f"{res}.docx")
+                    zip_list(zipFile, store.sendPath / ip / "权籍调查表.zip")
+                    store.addUseFile(ip, store.sendPath, "权籍调查表.zip")
+                    await websocket.send_json({'res':'生成权籍调查表完成','count':100,'MessageStatus':state.END})
+            else:
+                await websocket.send_json({'res':'ponp','MessageStatus':state.PONP})
+        except asyncio.exceptions.CancelledError:
+            log.info('权籍表生成连接关闭')  # 连接被关闭时退出循环
+        except WebSocketDisconnect as wsd:
+            log.err(f'权籍表生成连接意外的断开({wsd})')
 
 @router.post("/get_qlrcount")
 async def get_qlrcount(req: Request = None):
@@ -141,12 +209,6 @@ async def jxrks_all(args: Args, req: Request = None):
         zip_list(use.useApi[ip].zipFile, store.sendPath / ip / "认可书.zip")
         store.addUseFile(ip, store.sendPath, "认可书.zip")
         use.useApi[ip].zipFile = []
-        jzxpath = store.useFile[store.useFile.filename == args.jzxpath].path.values[0]
-        jzx_df = pd.read_excel(jzxpath)
-        jzx_df = jzx_df.fillna("")
-        use.useApi[ip].rks = generate_jxrks_all(
-            use.useApi[ip].Ow.ZD, use.useApi[ip].Ow.JZD, jzx_df, store.sendPath / ip, args.control
-        )
     return res
 
 
@@ -169,11 +231,9 @@ async def jzdcg_all(args: Args, req: Request = None):
     use.useApi[ip].zipFile.append(store.sendPath / ip / f"{res}.xlsx")
     store.addUseFile(ip, store.sendPath, f"{res}.xlsx")
     if args.end == 1:
-        jzd = gpd.read_file(use.useApi[ip].gdb, layer="JZD")
         zip_list(use.useApi[ip].zipFile, store.sendPath / ip / "界址点成果表.zip")
         store.addUseFile(ip, store.sendPath, "界址点成果表.zip")
         use.useApi[ip].zipFile = []
-        use.useApi[ip].rks = generate_jzdcg_all(jzd, use.useApi[ip].Ow.ZD, store.sendPath / ip)
     return res
 
 
@@ -214,6 +274,10 @@ async def to_jzxshp(req: Request = None):
     ip = req.client.host
     use.useApi[ip].Ow.to_jzxshp(store.sendPath / ip / "JZXshp.shp")
     store.addUseFile(ip, store.sendPath, "JZXshp.shp")
+    shpfile = list(Path(store.sendPath / ip).glob("JZXshp.*"))
+    zipFile = [store.sendPath / ip / i.name for i in shpfile]
+    zip_list(zipFile,store.sendPath / ip / 'JZX矢量.zip')
+    store.addUseFile(ip,store.sendPath, 'JZX矢量.zip')
     return "导出界址线矢量成功"
 
 @router.post("/qzb_one")
@@ -236,9 +300,7 @@ async def generate_qzb(args: Args, req: Request = None):
     if args.end == 1:
         zipDir(str(store.sendPath / ip / '签字资料'), store.sendPath / ip / "签字资料.zip")
         store.addUseFile(ip, store.sendPath, "签字资料.zip")
-        qzb_file = store.useFile[store.useFile.filename == args.qzb_data].path.values[0]
         use.useApi[ip].zipFile = []
-        use.useApi[ip].qzb = qzb_(qzb_file, store.sendPath / ip,args.choose)
     return res
 
 @router.get("/hzdh_repeat")

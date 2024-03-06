@@ -22,6 +22,8 @@ __pycache__
 test
 log
 static
+static2
+static3
 *.cpg
 *.dbf
 *.prj

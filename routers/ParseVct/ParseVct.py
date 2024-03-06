@@ -24,7 +24,7 @@ class Vct:
         self.TableStructure = TableStructure(reElementSplit(self.vct_str,'TableStructure'))
         self.Point = Point(reElementSplit(self.vct_str,'Point'))
         self.Line = Line(reElementSplit(self.vct_str,'Line'))
-        self.Polygon = Polygon(reElementSplit(self.vct_str,'Polygon'))
+        self.Polygon = Polygon(self.Line.gdf,rowlist=reElementSplit(self.vct_str,'Polygon'))
         self.Annotation = Annotation(reElementSplit(self.vct_str,'Annotation'))
         self.Topology = Topology(reElementSplit(self.vct_str,'Topology'))
         self.Attribute = Attribute(reElementSplit(self.vct_str,'Attribute'))
