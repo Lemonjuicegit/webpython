@@ -462,6 +462,7 @@ def generate_qjdc_(zd_data, jzd_data, jzx_data, savepath, jpg_zdct, control):
         yield f"{row['QLRMC']}权籍调查表"
 
 async def generate_qjdcAsync(zd_data, jzd_data, jzx_data, savepath, jpg_zdct, control):
+    await asyncio.sleep(0)
     for key, row in get_zd_data(zd_data, jzx_data, jzd_data).items():
         docxlist = []
         log.info(f"{row['QLRMC']}权籍调查表")

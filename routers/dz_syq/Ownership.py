@@ -109,9 +109,66 @@ class Ownership:
         self.JZD[~self.JZD.X.isin(_coordinates.X) | ~self.JZD.Y.isin(_coordinates.Y)].to_excel('没匹配上的界址点.xlsx')
         return pd.merge(self.JZD,_coordinates,on=['ZDDM','X','Y'], how='inner'),_coordinates
         
-    async def add_jzx(self,jzd_gdf_):
+    async def add_jzx_async(self,jzd_gdf_):
         # @jzd_gdf_
         await asyncio.sleep(0)
+        for index,row in jzd_gdf_.iterrows():
+            QLRMC = self.ZD[self.ZD.ZDDM.isin(jzd_gdf_.ZDDM)].QLRMC.values[0]
+            ZDDM = jzd_gdf_.ZDDM.values[0]
+            b_jzd,h_xljzd,q_xljzd = self.adjacent_jzdzddm(row)
+            if index == 0:
+
+                self.JZX.loc[self.JZX.shape[0],'ZDDM'] = ZDDM
+                self.JZX.loc[self.JZX.shape[0]-1,'QLRMC'] = QLRMC
+                if XLQLRZDDM := list(set(b_jzd.ZDDM) & set(q_xljzd.ZDDM)):
+                    self.JZX.loc[self.JZX.shape[0]-1,'LZTDZL'] = self.JZD_All[self.JZD_All.ZDDM == XLQLRZDDM[0]].TDZL.values[0]
+                    self.JZX.loc[self.JZX.shape[0]-1,'LZQLRMC'] = self.JZD_All[self.JZD_All.ZDDM == XLQLRZDDM[0]].QLRMC.values[0]
+                self.JZX.loc[self.JZX.shape[0]-1,'QSDH'] = jzd_gdf_.JZD_NEW.values[0]
+                self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'] = []
+                self.JZX.loc[self.JZX.shape[0]-1,'INDEX'] = jzd_gdf_.at[index,'INDEX']
+                continue
+            if index == jzd_gdf_.shape[0]-1:
+                # 终点界址点
+                if list(set(h_xljzd.ZDDM) & set(q_xljzd.ZDDM)) or (b_jzd.shape[0] == 0):
+                    self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'].append(row.JZD_NEW)
+                else:
+                    self.JZX.loc[self.JZX.shape[0],'ZDDM'] = ZDDM
+                    self.JZX.loc[self.JZX.shape[0]-1,'QLRMC'] = QLRMC
+                    if XLQLRZDDM := list(set(b_jzd.ZDDM) & set(q_xljzd.ZDDM)):
+                        self.JZX.loc[self.JZX.shape[0]-1,'LZTDZL'] = self.JZD_All[self.JZD_All.ZDDM == XLQLRZDDM[0]].TDZL.values[0]
+                        self.JZX.loc[self.JZX.shape[0]-1,'LZQLRMC'] = self.JZD_All[self.JZD_All.ZDDM == XLQLRZDDM[0]].QLRMC.values[0]
+                    self.JZX.loc[self.JZX.shape[0]-1,'QSDH'] = row.JZD_NEW
+                    self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'] = []
+                    self.JZX.loc[self.JZX.shape[0]-2,'ZZDH'] = row.JZD_NEW
+                    self.JZX.loc[self.JZX.shape[0]-1,'INDEX'] = jzd_gdf_.at[index,'INDEX']
+                if self.JZX.loc[self.JZX.shape[0]-1,'QSDH'] == jzd_gdf_.at[0,'JZD_NEW']:
+                    self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'].remove(jzd_gdf_.tail(1).JZD_NEW.values[0])
+                    self.JZX.loc[self.JZX.shape[0]-1,'ZZDH'] = jzd_gdf_.tail(1).JZD_NEW.values[0]
+                    self.JZX.loc[self.JZX.shape[0],'ZDDM'] = ZDDM
+                    self.JZX.loc[self.JZX.shape[0]-1,'QLRMC'] = QLRMC
+                    if XLQLRZDDM := list(set(b_jzd.ZDDM) & set(q_xljzd.ZDDM)):
+                        self.JZX.loc[self.JZX.shape[0]-1,'LZTDZL'] = self.JZD_All[self.JZD_All.ZDDM == XLQLRZDDM[0]].TDZL.values[0]
+                        self.JZX.loc[self.JZX.shape[0]-1,'LZQLRMC'] = self.JZD_All[self.JZD_All.ZDDM == XLQLRZDDM[0]].QLRMC.values[0]
+                    self.JZX.loc[self.JZX.shape[0]-1,'QSDH'] = jzd_gdf_.tail(1).JZD_NEW.values[0]
+                    self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'] = []
+                    self.JZX.loc[self.JZX.shape[0]-1,'INDEX'] = jzd_gdf_.at[index,'INDEX']
+                self.JZX.loc[self.JZX.shape[0]-1,'ZZDH'] = jzd_gdf_.at[0,'JZD_NEW']
+                continue
+            if list(set(h_xljzd.ZDDM) & set(q_xljzd.ZDDM))  or (b_jzd.shape[0] == 0):
+                self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'].append(row.JZD_NEW)
+            else:
+                self.JZX.loc[self.JZX.shape[0],'ZDDM'] = ZDDM
+                self.JZX.loc[self.JZX.shape[0]-1,'QLRMC'] = QLRMC
+                if XLQLRZDDM := list(set(b_jzd.ZDDM) & set(q_xljzd.ZDDM)):
+                    self.JZX.loc[self.JZX.shape[0]-1,'LZTDZL'] = self.JZD_All[self.JZD_All.ZDDM == XLQLRZDDM[0]].TDZL.values[0]
+                    self.JZX.loc[self.JZX.shape[0]-1,'LZQLRMC'] = self.JZD_All[self.JZD_All.ZDDM == XLQLRZDDM[0]].QLRMC.values[0]
+                self.JZX.loc[self.JZX.shape[0]-1,'QSDH'] = row.JZD_NEW
+                self.JZX.loc[self.JZX.shape[0]-1,'ZJDH'] = []
+                self.JZX.loc[self.JZX.shape[0]-2,'ZZDH'] = row.JZD_NEW
+                self.JZX.loc[self.JZX.shape[0]-1,'INDEX'] = jzd_gdf_.at[index,'INDEX']
+    
+    def add_jzx(self,jzd_gdf_):
+        # @jzd_gdf_
         for index,row in jzd_gdf_.iterrows():
             QLRMC = self.ZD[self.ZD.ZDDM.isin(jzd_gdf_.ZDDM)].QLRMC.values[0]
             ZDDM = jzd_gdf_.ZDDM.values[0]
@@ -180,13 +237,13 @@ class Ownership:
             yield f"正在生成:{zddm}"
     
     async def add_jzx_(self):
-        
         zddm_df = self.get_zddm()
         for zddm in zddm_df:
             coordinates_index = self.get_coordinates_index(self.JZD[self.JZD.ZDDM == zddm])
             for index in coordinates_index:
                 sel_jzd = self.JZD[(self.JZD.ZDDM == zddm) & (self.JZD.INDEX == index)].reset_index()
-                await self.add_jzx(sel_jzd)
+                # pool.apply_async(self.add_jzx,(sel_jzd,))
+                self.add_jzx(sel_jzd)
             yield f"正在生成:{zddm}"
     
     def to_jzxshp(self,savepath):

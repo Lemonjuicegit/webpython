@@ -4,11 +4,12 @@ from .Djmod import Djlog
 
 class State:
     def __init__(self):
-        self.ERR = -1
-        self.GET_READY = 0
-        self.RES = 1
-        self.END = 2
-        self.PONP = 3
+        self.ERR = -1 # 出错状态
+        self.GET_READY = 0 # 准备状态
+        self.RES = 1 # 执行状态
+        self.END = 2 # 结束状态
+        self.PONP = 3 # 心跳状态
+        
 class Store:
     def __init__(self):
         self.useFile:pd.DataFrame = pd.DataFrame(columns=["ip","directory", "filename", "path", "type", "name"])  # coulmns: directory,filename,path,type,name

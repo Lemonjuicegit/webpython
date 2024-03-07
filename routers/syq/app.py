@@ -1,12 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter,Request
 
-import uvicorn, json, shutil
+import json, shutil
 import pandas as pd
 import geopandas as gpd
-from fastapi import FastAPI, Request, UploadFile
 from pydantic import BaseModel
-from fastapi.staticfiles import StaticFiles
-from starlette.responses import FileResponse
 from pathlib import Path
 from Api import Api
 from pk.Djmod import Djlog
@@ -16,8 +13,6 @@ from pk.所有权面积分类 import Area_table_all
 from .Djmod import zip_list
 
 router = APIRouter()
-
-app = FastAPI()
 useApi: dict[str, Api] = {}
 log = Djlog()
 
@@ -244,13 +239,3 @@ async def to_jzxshp(req: Request = None):
     useApi[ip].Ow.to_jzxshp(sendPath / ip / "JZXshp.shp")
     addUseFile(ip, sendPath / ip, "JZXshp.shp")
     return "导出界址线矢量成功"
-
-
-
-if __name__ == "__main__":
-    @router.post(f"{rewrite}/test")
-    def test(req: Request):
-        ip = req.client.host
-        print(ip)
-        return "test"
-    uvicorn.run(app, host="192.168.2.194", port=8000)

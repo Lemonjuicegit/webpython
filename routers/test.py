@@ -1,4 +1,26 @@
-from YCDardens_Repair import generate_opinion_all
+import asyncio
+from multiprocessing import Pool
 
-gdb = r"E:\工作文档\模板\调查表测试.gdb"
-generate_opinion_all(gdb,r"E:\工作文档\测试导出数据\img",r"E:\工作文档\测试导出数据\测试.docx")
+
+class Test:
+    def __init__(self):
+        self.a = 0
+        
+    def add(self,count):
+        for i in range(count):
+            self.a += i
+        return self.a
+temp = Test()
+def add(count,id):
+    temp.add(count)
+    print(temp.a,id)
+def test():
+    print("test")
+
+if __name__ == '__main__': 
+    pool = Pool(4)
+    pool.apply_async(add,(100,1))
+    pool.apply_async(add,(100,2))
+    pool.apply_async(add,(100,3))
+    pool.close()
+    pool.join()

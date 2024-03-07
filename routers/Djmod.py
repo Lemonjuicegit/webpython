@@ -1,5 +1,6 @@
 import logging, time, zipfile, os, traceback, sys
 import pandas as pd
+from multiprocessing import Pool
 from functools import wraps
 from docx.shared import Pt
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
@@ -24,9 +25,6 @@ def fileDF(directory_list: list[str]):
                 ]
     return df
 
-def ipstr(ip):
-    return "".join(ip.split("."))
-
 def unzip(zip_path: str, unzip_path: str,filetype:str=''):
     '''解压文件'''
     with zipfile.ZipFile(zip_path, "r") as zip_file:
@@ -38,7 +36,6 @@ def unzip(zip_path: str, unzip_path: str,filetype:str=''):
         if filetype == 'gdb':
             return zip_path
         return namelist
-
 
 def zip_list(filelist: list[str|Path], zipname):
     # 多个文件压缩
@@ -77,7 +74,6 @@ def groupby(df: pd.DataFrame, by: list[str], agg: str):
     by_df.reset_index(inplace=True)
     return by_df
 
-
 class Djlog:
     def __init__(self) -> None:
         # 日志输出
@@ -92,7 +88,6 @@ class Djlog:
         self.info = logging.info
         self.warning = logging.warning
         self.err = logging.error
-
 
 def logErr(log: Djlog,):  # -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:# -> Callable[..., _Wrapped[Callable[..., Any], Any, Callable[..., Any], Any | str]]:
     # 错误日志输出
@@ -112,7 +107,6 @@ def logErr(log: Djlog,):  # -> Callable[..., _Wrapped[Callable[..., Any], Any, C
         return wrapper
 
     return outwrapper
-
 
 def compose_docx_file(files, output_file_path):
     """
@@ -134,7 +128,6 @@ def compose_docx_file(files, output_file_path):
         n += 1
 
     composer.save(output_file_path)
-
 
 def compose_docx(docxlist, output_file_path: str):
     """
@@ -195,3 +188,18 @@ def multiValueSplicing(data_path,fid,format_value,symbols='、'):
     df.apply(dispose,axis=1)
     res_df = pd.DataFrame([{'id':k,'value':v} for k,v in data_dict.items() ])
     return res_df
+
+class ProcessTask:
+    def __init__(self,count:int):
+        self.P = Pool(count)
+        
+    def exec(self,func,*args):
+        self.P.apply_async(func,args=args)
+        
+    def loop(self,func,iterate,*args):
+        for item in iterate:
+            func(item,*args)
+            
+    def close(self):
+        self.P.close()
+        self.P.join()

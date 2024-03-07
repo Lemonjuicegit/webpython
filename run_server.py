@@ -1,10 +1,10 @@
 import uvicorn, json, shutil
 import pandas as pd
+from multiprocessing import Pool
 from fastapi import FastAPI, Request, UploadFile,File
 from pydantic import BaseModel
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 from pathlib import Path
 from Api import Api
 from pk.Djmod import Djlog
@@ -47,6 +47,7 @@ class Args(BaseModel):
     isorderly:int = 0 # 堆叠优先级字段是否有序
     stack_layer: str = '' # 堆叠融合图层
 
+    
 @app.exception_handler(Exception)
 async def http_exception_handler(req: Request, exc):
     log.err(str(exc))
@@ -179,5 +180,17 @@ async def stacking(args: Args,req: Request = None):
     store.addUseFile(ip, store.sendPath,'堆叠融合.zip')
     return '堆叠融合处理完成'
 
+
+def aa(item):
+    print(item)
+
+@app.post(f"{rewrite}/test")
+async def text(args:Args,req: Request = None):
+    ip = req.client.host
+    print(f"{ip}==")
+    pool = Pool(4)
+    pool.apply_async(aa,args=(args.gdb,))
+    pool.close()
+    pool.join()
 if __name__ == "__main__":
     uvicorn.run(app, host="192.168.2.51", port=8000)

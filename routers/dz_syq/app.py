@@ -2,6 +2,7 @@ import json,asyncio,math
 from pathlib import Path
 import pandas as pd
 import geopandas as gpd
+from multiprocessing import Pool
 from fastapi import  Request,APIRouter,WebSocket
 from pydantic import BaseModel
 from starlette.websockets import WebSocketDisconnect
@@ -38,6 +39,7 @@ class Args(BaseModel):
     df_fda: str = ""  # 面积统计表飞地excel数据路径
     precision:int|float = 10 # 界址点匹配精度
     type: str = ""  # websocket发来消息的类型
+    state:int = 0
     
 async def send_progress(websocket, progress):
     await websocket.send_text(progress)
@@ -62,7 +64,7 @@ async def get_zdcount(req: Request = None):
 async def createLine(args: Args, req: Request = None):
     ip = req.client.host
     res = next(use.useApi[ip].jzx)
-    if args.end:
+    if args.state == state.GET_READY:
         use.useApi[ip].jzx = use.useApi[ip].Ow.add_jzx_all()
         use.useApi[ip].Ow.JZX = use.useApi[ip].Ow.ZJDH_format()
         return json.dumps(
@@ -73,20 +75,26 @@ async def createLine(args: Args, req: Request = None):
         )
     return res
 
+
 @router.websocket("/ws/createLine/{client_id}")
 async def createLine_socket(websocket: WebSocket,client_id: str):
     await websocket.accept()
     ip = websocket.client.host
-    print('socket连接成功')
+    # pool = Pool(10)
     while True:
         try:
             message = json.loads(await websocket.receive_text())
             if message['type'] != 'ping':
                 zdcount = use.useApi[ip].Ow.zdcount
                 count = 0         
-                async for res in use.useApi[ip].Ow.add_jzx_():
+                zddm_df = use.useApi[ip].Ow.get_zddm()
+                for zddm in zddm_df:
+                    coordinates_index = use.useApi[ip].Ow.get_coordinates_index(use.useApi[ip].Ow.JZD[use.useApi[ip].Ow.JZD.ZDDM == zddm])
+                    for index in coordinates_index:
+                        sel_jzd = use.useApi[ip].Ow.JZD[(use.useApi[ip].Ow.JZD.ZDDM == zddm) & (use.useApi[ip].Ow.JZD.INDEX == index)].reset_index()
+                        await use.useApi[ip].Ow.add_jzx_async(sel_jzd)
                     count += 1
-                    await websocket.send_json({'res':f"({count}/{zdcount})|{res}",'count':math.ceil(count/use.useApi[ip].Ow.zdcount*100),'MessageStatus':state.RES})
+                    await websocket.send_json({'res':f"({count}/{zdcount})|正在生成:{zddm}",'count':math.ceil(count/use.useApi[ip].Ow.zdcount*100),'MessageStatus':state.RES})
                 await websocket.send_json( {
                     "data": json.loads(use.useApi[ip].Ow.JZX.to_json(orient="records")),
                     'MessageStatus':state.END
@@ -160,10 +168,14 @@ async def generate_qjdc_socket(websocket: WebSocket,client_id: str):
                 elif use.useApi[ip].Ow.JZX.shape[0] == 0:
                     await websocket.send_json({'res':'没有生成界址线数据','count':0,'MessageStatus':state.ERR})
                 else:
-                    qlrcount = use.useApi[ip].generate_qjdc(args['control'], store.sendPath / ip,generate_qjdcAsync)
+                    zd_data_ = gpd.read_file(use.useApi[ip].gdb,layer='ZD')
+                    zd_data_ = zd_data_.fillna('')
+                    jzd_data_ = use.useApi[ip].Ow.JZD
+                    jzd_data_.sort_values(by=['ZDDM','PX'], inplace=True)
+                    qlrcount = use.useApi[ip].Ow.qlrcount
                     count = 0
                     zipFile = []
-                    async for res in use.useApi[ip].handleGenerate_qjdc:
+                    async for res in generate_qjdcAsync(zd_data_,jzd_data_,use.useApi[ip].Ow.JZX, store.sendPath / ip,use.useApi[ip].jpg_zdct,args['control']):
                         count += 1
                         await websocket.send_json({'res':f"({count}/{qlrcount})|{res}",'count':math.ceil(count/qlrcount*100),'MessageStatus':state.RES})
                         zipFile.append(store.sendPath / ip / f"{res}.docx")
